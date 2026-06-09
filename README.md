@@ -22,13 +22,12 @@
 
 ```bash
 python3 Бизнес/Логистика/scripts/wb_logistics_fetch.py
-python3 Бизнес/Логистика/scripts/build_logistics_dashboard.py
-git add Бизнес/Логистика/ && git commit -m "logistics: update dashboard" && git push
+python3 Бизнес/Логистика/scripts/publish_dashboard.py
 ```
 
 Или в Cursor: **`логист api обнови`** → **`логист дашборд`**.
 
-После push workflow `Logistics Dashboard` пересоберёт сайт (~1–2 мин).
+`publish_dashboard.py` собирает HTML и пушит в `wb-logistics-dashboard` → сайт обновится за ~1 мин.
 
 ## Локально
 
