@@ -2,11 +2,12 @@
 
 Веб-страница для **Насти** и **Марго**: остатки, оборачиваемость, план довоза, распределение по складам.
 
-## Ссылка (после включения GitHub Pages)
+## Ссылка для Насти и Марго
 
-`https://wedoubledi-web.github.io/kursor-wb/`
+**https://wedoubledi-web.github.io/wb-logistics-dashboard/**
 
-> Один раз: GitHub → репозиторий `kursor-wb` → Settings → Pages → Source: **GitHub Actions**.
+> Основной репозиторий `kursor-wb` — **приватный**, Pages там недоступен на бесплатном плане.  
+> Дашборд публикуется в отдельный **публичный** репозиторий `wb-logistics-dashboard` (только `index.html`, без секретов).
 
 ## Что внутри
 
