@@ -236,7 +236,13 @@ function renderToday() {
       <div class="hint">реклама ${rub(ps.ad)}</div></div>
     <div class="kpi-card"><span class="icon">⚠</span><div class="label">В минусе</div>
       <div class="value" style="color:var(--red)">${e.minus_sku_count || 0}</div>
-      <div class="hint">${rub(e.minus_total_w1)}</div></div>`;
+      <div class="hint">${rub(e.minus_total_w1)}</div></div>
+    <div class="kpi-card"><span class="icon">📦</span><div class="label">Запас кабинета</div>
+      <div class="value">${DATA.meta.cabinet_days_now || '—'}<span style="font-size:.9rem"> дн</span></div>
+      <div class="hint">цель ${DATA.meta.target_days || 35} дн</div></div>
+    <div class="kpi-card"><span class="icon">🚚</span><div class="label">К отгрузке</div>
+      <div class="value">${fmt(DATA.meta.plan_batch)}</div>
+      <div class="hint">${DATA.meta.plan_sku} SKU</div></div>`;
 
   const all = d.daily || [];
   const revRows = all.slice(-30);
@@ -416,11 +422,61 @@ function renderAds() {
   } else umCard.style.display = 'none';
 }
 
+function turnoverCell(days, target) {
+  if (days == null) return '—';
+  const cls = days < 14 ? 'z-red' : days > 90 ? 'z-yellow' : days <= (target || 35) + 10 ? 'z-green' : '';
+  return `<span class="${cls}">${days}д</span>`;
+}
+
+function whBestCell(s) {
+  if (!s.warehouse_best) return '—';
+  const qty = s.warehouse_best_qty ? ` · ${s.warehouse_best_qty} шт` : '';
+  return `<strong>${s.warehouse_best}</strong><span style="font-size:.72rem;color:var(--muted)">${qty}</span>`;
+}
+
 function renderStock() {
-  const list = qfilter(filterBrand(DATA.skus_all), 'stock').sort((a, b) => b.stock - a.stock);
+  const m = DATA.meta;
+  const target = m.target_days || 35;
+  document.getElementById('stockKpi').innerHTML = `
+    <div class="kpi-card"><div class="label">Запас кабинета</div>
+      <div class="value">${m.cabinet_days_now || '—'}<span style="font-size:.85rem"> дн</span></div>
+      <div class="hint">цель ${target} дн</div></div>
+    <div class="kpi-card"><div class="label">К отгрузке</div>
+      <div class="value">${fmt(m.plan_batch)}</div><div class="hint">${m.plan_sku} SKU</div></div>
+    <div class="kpi-card"><div class="label">Срочно OOS/дефицит</div>
+      <div class="value z-red">${m.urgent_count || 0}</div></div>
+    <div class="kpi-card"><div class="label">ИЛ средний</div>
+      <div class="value">${m.localization_avg ? (m.localization_avg * 100).toFixed(0) + '%' : '—'}</div></div>`;
+  const tgtEl = document.getElementById('targetDaysNote');
+  const plechoEl = document.getElementById('plechoNote');
+  if (tgtEl) tgtEl.textContent = target;
+  if (plechoEl) plechoEl.textContent = m.plecho_days || 20;
+
+  document.querySelector('#tableUrgent tbody').innerHTML = (DATA.urgent || []).map(s => `<tr>
+    <td><strong>${s.sku || s.nm_id}</strong></td>
+    <td class="num">${s.stock}</td><td class="num">${s.sold_30d}</td>
+    <td class="num">${turnoverCell(s.days_now, target)}</td>
+    <td>${whBestCell(s)}</td>
+    <td class="num"><strong>${s.batch || '—'}</strong></td></tr>`).join('') || '<tr><td colspan="6">Нет срочных</td></tr>';
+
+  const whPlan = DATA.warehouses_plan || [];
+  document.getElementById('whPlanSummary').innerHTML = whPlan.length ? whPlan.slice(0, 8).map(w => {
+    const max = Math.max(...whPlan.map(x => x.qty), 1);
+    return `<div class="bar-row"><div class="bar-label">${w.name}</div>
+      <div class="bar-track"><div class="bar-fill ship" style="width:${w.qty / max * 100}%"></div></div>
+      <div class="bar-num">${w.qty}</div></div>`;
+  }).join('') : '<p class="note">Нет плана отгрузки</p>';
+
+  const list = qfilter(filterBrand(DATA.skus_all), 'stock')
+    .sort((a, b) => (a.days_now ?? 999) - (b.days_now ?? 999));
   document.querySelector('#tableStock tbody').innerHTML = list.map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td>${s.brand}</td><td class="num">${s.stock}</td>
-    <td class="num">${s.sold_30d}</td><td class="num">${s.days_now != null ? s.days_now + 'д' : '—'}</td>
+    <td>${s.sku || s.nm_id}</td>
+    <td class="num">${s.stock}</td><td class="num">${s.sold_30d}</td>
+    <td class="num">${turnoverCell(s.days_now, target)}</td>
+    <td class="num">${s.days_after != null ? turnoverCell(s.days_after, target) : '—'}</td>
+    <td>${whBestCell(s)}<br><span style="font-size:.7rem;color:var(--muted)">${s.warehouse_best_reason || ''}</span></td>
+    <td>${whTags(s.warehouses_rec)}</td>
+    <td class="num">${s.localization_pct != null ? (s.localization_pct * 100).toFixed(0) + '%' : '—'}</td>
     <td>${badge(s.status, s.status_label)}</td></tr>`).join('');
 }
 

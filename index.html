@@ -115,7 +115,7 @@ footer{margin-top:28px;color:var(--muted);font-size:.75rem}
     <button class="nav-item" data-tab="rnp">Динамика</button>
     <button class="nav-item" data-tab="minus">Минус / P&L</button>
     <button class="nav-item" data-tab="ads">Реклама</button>
-    <button class="nav-item" data-tab="stock">Остатки</button>
+    <button class="nav-item" data-tab="stock">Остатки / запас</button>
     <button class="nav-item" data-tab="str">STR</button>
   </div>
   <div class="nav-group">
@@ -296,12 +296,24 @@ footer{margin-top:28px;color:var(--muted);font-size:.75rem}
 </div>
 
 <div class="panel" id="panel-stock">
-  <div class="card"><h2>Остатки WB</h2>
-    <input class="search" id="searchStock" placeholder="Поиск…">
+  <div class="kpi" id="stockKpi"></div>
+  <div class="grid2">
+    <div class="card"><h2>🔴 Срочно — мало запаса</h2>
+      <div class="scroll"><table id="tableUrgent"><thead><tr>
+        <th>Артикул</th><th class="num">Ост.</th><th class="num">/30д</th>
+        <th class="num">Запас</th><th>Лучший склад</th><th class="num">Отгрузка</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card"><h2>Куда везти — топ по отгрузке</h2><div id="whPlanSummary"></div></div>
+  </div>
+  <div class="card"><h2>Оборачиваемость и склады по SKU</h2>
+    <input class="search" id="searchStock" placeholder="Поиск артикула…">
     <div class="scroll"><table id="tableStock"><thead><tr>
-      <th>Артикул</th><th>Бренд</th><th class="num">Ост.</th><th class="num">/30д</th>
-      <th class="num">Дней</th><th>Статус</th>
+      <th>Артикул</th><th class="num">Ост.</th><th class="num">/30д</th>
+      <th class="num">Запас сейчас</th><th class="num">После довоза</th>
+      <th>Лучший склад</th><th>Куда везти</th><th class="num">ИЛ</th><th>Статус</th>
     </tr></thead><tbody></tbody></table></div>
+    <p class="note">Цель запаса: <b id="targetDaysNote">35</b> дн · плечо +<span id="plechoNote">20</span> дн · склады по географии спроса (регламент S-002)</p>
   </div>
 </div>
 
