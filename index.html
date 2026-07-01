@@ -3,258 +3,271 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Поставки WB — дашборд</title>
+<title>WB Manager — РНП</title>
 <style>
-:root {
-  --bg: #0f1419; --surface: #1a2332; --surface2: #243044;
-  --text: #e8edf4; --muted: #8b9cb3; --accent: #5b8def;
-  --green: #3dd68c; --yellow: #f5c542; --red: #f56565; --orange: #ed8936;
-  --border: #2d3a4f; --radius: 12px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
-.wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px 48px; }
-header { margin-bottom: 28px; }
-header h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 4px; }
-header .sub { color: var(--muted); font-size: 0.9rem; }
-.kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
-.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
-.kpi-card .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.kpi-card .value { font-size: 1.75rem; font-weight: 700; margin-top: 4px; }
-.kpi-card .hint { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
-.kpi-card.accent { border-color: var(--accent); background: linear-gradient(135deg,#1a2332,#1e2d4a); }
-.tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-.tab { background: var(--surface); border: 1px solid var(--border); color: var(--muted);
-  padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; transition: .15s; }
-.tab:hover { color: var(--text); border-color: var(--accent); }
-.tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-.panel { display: none; }
-.panel.active { display: block; }
-.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
-.card h2 { font-size: 1rem; margin-bottom: 14px; color: var(--muted); font-weight: 600; }
-.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.85rem; }
-.bar-label { width: 140px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-track { flex: 1; height: 22px; background: var(--surface2); border-radius: 6px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--accent), #7ba3f7); transition: width .4s; }
-.bar-fill.ship { background: linear-gradient(90deg, var(--green), #6ee7a8); }
-.bar-num { width: 48px; text-align: right; font-weight: 600; font-size: 0.85rem; }
-.search { width: 100%; padding: 10px 14px; background: var(--surface2); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text); font-size: 0.9rem; margin-bottom: 12px; }
-.search:focus { outline: none; border-color: var(--accent); }
-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-th { text-align: left; padding: 10px 8px; color: var(--muted); font-weight: 600;
-  border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
-td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-tr:hover td { background: var(--surface2); }
-.num { text-align: right; font-variant-numeric: tabular-nums; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; }
-.b-oos { background: #4a1c1c; color: var(--red); }
-.b-deficit { background: #4a3010; color: var(--orange); }
-.b-ok { background: #1a3a2a; color: var(--green); }
-.b-high, .b-excess, .b-overstock { background: #2a3040; color: var(--muted); }
-.b-minus { background: #3a1a2a; color: #f687b3; }
-.b-frozen { background: #2a2a30; color: var(--muted); }
-.days-compare { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
-.days-now { color: var(--red); }
-.days-arrow { color: var(--muted); }
-.days-after { color: var(--green); font-weight: 600; }
-.wh-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.wh-tag { background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; color: var(--muted); }
-.wh-detail { margin-bottom: 20px; }
-.wh-detail h3 { font-size: 0.95rem; margin-bottom: 8px; display: flex; justify-content: space-between; }
-.scroll-table { overflow-x: auto; max-height: 70vh; overflow-y: auto; }
-footer { margin-top: 32px; text-align: center; color: var(--muted); font-size: 0.8rem; }
-.alert { background: #2a1a1a; border: 1px solid var(--red); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 16px; }
-.alert strong { color: var(--red); }
+:root{--bg:#0c1017;--surface:#141b26;--surface2:#1c2535;--border:#2a3548;--text:#e8edf4;--muted:#8b9cb3;--accent:#5b8def;--green:#3dd68c;--yellow:#f5c542;--red:#f56565;--orange:#ed8936;--radius:12px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+.wrap{max-width:1400px;margin:0 auto;padding:18px 14px 48px}
+header{margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px}
+header h1{font-size:1.45rem;font-weight:700} header .sub{color:var(--muted);font-size:.85rem;margin-top:3px}
+.badge{font-size:.7rem;padding:4px 10px;border-radius:6px;font-weight:600}
+.badge.live{background:rgba(61,214,140,.12);color:var(--green);border:1px solid rgba(61,214,140,.3)}
+.badge.demo{background:rgba(245,197,66,.12);color:var(--yellow);border:1px solid rgba(245,197,66,.3)}
+.badge.stale{background:rgba(237,137,54,.12);color:var(--orange);border:1px solid rgba(237,137,54,.3)}
+.controls{display:flex;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px}
+.ctrl label{font-size:.68rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px}
+.ctrl select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:.85rem}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:16px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.kpi-card .label{font-size:.68rem;color:var(--muted);text-transform:uppercase}
+.kpi-card .value{font-size:1.35rem;font-weight:700;margin-top:3px}
+.kpi-card .hint{font-size:.72rem;color:var(--muted)}
+.kpi-card.accent{border-color:var(--accent)}
+.kpi-card .delta{font-size:.78rem;font-weight:600;margin-top:2px}
+.delta.up{color:var(--green)}.delta.down{color:var(--red)}.delta.flat{color:var(--muted)}
+.tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
+.tab{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.82rem}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.panel{display:none}.panel.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.card h2{font-size:.92rem;color:var(--muted);margin-bottom:10px;font-weight:600}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{text-align:left;padding:8px 7px;color:var(--muted);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);font-size:.68rem;text-transform:uppercase}
+td{padding:8px 7px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:hover td{background:var(--surface2)}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.badge-s{display:inline-block;padding:2px 6px;border-radius:5px;font-size:.65rem;font-weight:600}
+.b-oos,.b-red{background:#4a1c1c;color:var(--red)}
+.b-deficit,.b-yellow{background:#4a3010;color:var(--orange)}
+.b-ok,.b-green{background:#1a3a2a;color:var(--green)}
+.b-high,.b-excess,.b-overstock{background:#2a3040;color:var(--muted)}
+.b-minus{background:#3a1a2a;color:#f687b3}
+.b-frozen{background:#2a2a30;color:var(--muted)}
+.z-green{color:var(--green)}.z-yellow{color:var(--yellow)}.z-red{color:var(--red)}
+.search{width:100%;padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-bottom:8px;font-size:.85rem}
+.scroll{overflow:auto;max-height:65vh}
+.bar-row{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:.8rem}
+.bar-label{width:115px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:18px;background:var(--surface2);border-radius:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),#7ba3f7)}
+.bar-fill.ship{background:linear-gradient(90deg,var(--green),#6ee7a8)}
+.bar-num{width:40px;text-align:right;font-weight:600;font-size:.78rem}
+.wh-tags{display:flex;flex-wrap:wrap;gap:3px}
+.wh-tag{background:var(--surface2);padding:2px 5px;border-radius:4px;font-size:.65rem;color:var(--muted)}
+.alert{background:#2a1a1a;border:1px solid var(--red);border-radius:var(--radius);padding:11px 14px;margin-bottom:12px;font-size:.85rem}
+.focus-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.focus-item:last-child{border-bottom:none}
+.focus-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
+.focus-dot.critical{background:var(--red)}.focus-dot.warning{background:var(--yellow)}.focus-dot.info{background:var(--green)}
+.note{font-size:.78rem;color:var(--muted);border-left:3px solid var(--accent);padding:9px 11px;background:var(--surface2);border-radius:0 8px 8px 0;margin-top:8px}
+.compare{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin:8px 0}
+.compare .box{background:var(--surface2);border-radius:8px;padding:12px}
+.compare .arrow{color:var(--muted);font-size:1.2rem}
+footer{margin-top:24px;text-align:center;color:var(--muted);font-size:.75rem}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <h1>📦 Поставки WB</h1>
-  <p class="sub">Для Насти и Марго · снимок <span id="snap-date"></span> · обновлено <span id="gen-date"></span></p>
+  <div><h1>WB Manager · РНП</h1><p class="sub">Куда смотреть · минус в моменте · реклама · STR · отгрузка</p></div>
+  <span class="badge demo" id="srcBadge">загрузка…</span>
 </header>
 
-<div class="kpi" id="kpi"></div>
-
-<div class="alert" id="urgent-alert" style="display:none"></div>
-
-<div class="tabs" id="tabs">
-  <button class="tab active" data-tab="plan">План довоза</button>
-  <button class="tab" data-tab="warehouses">По складам</button>
-  <button class="tab" data-tab="stock">Все остатки</button>
-  <button class="tab" data-tab="stop">Не грузить</button>
+<div class="controls">
+  <div class="ctrl"><label>Бренд</label><select id="brandFilter"><option value="">Все</option></select></div>
 </div>
 
-<div class="panel active" id="panel-plan">
-  <div class="card">
-    <h2>План довоза — оборачиваемость до и после поставки</h2>
-    <input class="search" id="search-plan" placeholder="Поиск по артикулу…">
-    <div class="scroll-table">
-      <table id="table-plan"><thead><tr>
-        <th>Артикул</th><th>Статус</th><th class="num">Остаток</th><th class="num">/30д</th>
-        <th>Запас сейчас</th><th class="num">Довоз</th><th>После</th><th>Склады</th>
-      </tr></thead><tbody></tbody></table>
+<div class="kpi" id="kpiMain"></div>
+<div class="alert" id="urgentAlert" style="display:none"></div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="rnp">РНП</button>
+  <button class="tab" data-tab="focus">Фокус сегодня</button>
+  <button class="tab" data-tab="str">STR</button>
+  <button class="tab" data-tab="funnel">Воронка</button>
+  <button class="tab" data-tab="plan">Отгрузка</button>
+  <button class="tab" data-tab="logistics">Логистика</button>
+  <button class="tab" data-tab="minus">Минус / P&L</button>
+  <button class="tab" data-tab="ads">Реклама</button>
+  <button class="tab" data-tab="stock">Остатки</button>
+  <button class="tab" data-tab="yard">Ярд 2.0</button>
+  <button class="tab" data-tab="warehouses">Склады</button>
+  <button class="tab" data-tab="stop">Стоп</button>
+</div>
+
+<!-- РНП -->
+<div class="panel active" id="panel-rnp">
+  <div class="grid2">
+    <div class="card"><h2>Неделя vs прошлая</h2><div id="weekCompare"></div></div>
+    <div class="card"><h2>Растут (заказы)</h2><div class="scroll"><table id="tableGrow"><thead><tr>
+      <th>Артикул</th><th class="num">W1</th><th class="num">Δ</th><th class="num">Выручка</th>
+    </tr></thead><tbody></tbody></table></div></div>
+  </div>
+  <div class="card"><h2>Все SKU — динамика</h2>
+    <input class="search" id="searchRnp" placeholder="Поиск…">
+    <div class="scroll"><table id="tableRnp"><thead><tr>
+      <th>Артикул</th><th class="num">Заказы W1</th><th class="num">Δ заказы</th>
+      <th class="num">STR Δ</th><th class="num">Выкуп</th><th class="num">ДРР</th><th>Зона</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- Фокус -->
+<div class="panel" id="panel-focus">
+  <div class="card"><h2>Куда смотреть прямо сейчас</h2><div id="focusList"></div></div>
+  <div class="card"><h2>Инсайты по правилам</h2><div class="scroll" id="insightsList" style="max-height:50vh"></div></div>
+</div>
+
+<!-- STR -->
+<div class="panel" id="panel-str">
+  <div class="card"><h2>STR просели — продажи W1 vs W0</h2>
+    <div class="scroll"><table id="tableStr"><thead><tr>
+      <th>Артикул</th><th class="num">Продажи W1</th><th class="num">W0</th>
+      <th class="num">Δ STR</th><th class="num">Заказы Δ</th><th>Действие</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- Воронка -->
+<div class="panel" id="panel-funnel">
+  <div class="kpi" id="funnelKpi"></div>
+  <div class="grid2">
+    <div class="card"><h2>Низкий выкуп (&lt;75%)</h2>
+      <div class="scroll"><table id="tableBuyout"><thead><tr>
+        <th>Артикул</th><th class="num">Выкуп</th><th class="num">Заказы 30д</th><th class="num">Возвраты</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card"><h2>Воронка по SKU</h2>
+      <input class="search" id="searchFunnel" placeholder="Поиск…">
+      <div class="scroll"><table id="tableFunnel"><thead><tr>
+        <th>Артикул</th><th class="num">Заказы 30д</th><th class="num">Выкупы</th>
+        <th class="num">Выкуп%</th><th class="num">Возвраты</th><th class="num">Ср.чек</th>
+      </tr></thead><tbody></tbody></table></div>
     </div>
   </div>
 </div>
 
+<!-- Отгрузка -->
+<div class="panel" id="panel-plan">
+  <div class="card"><h2>План закупки и отгрузки</h2>
+    <input class="search" id="searchPlan" placeholder="Поиск…">
+    <div class="scroll"><table id="tablePlan"><thead><tr>
+      <th>Артикул</th><th>Статус</th><th class="num">Остаток</th><th class="num">/30д</th>
+      <th>Запас</th><th class="num">Отгрузка</th><th class="num">Закуп ₽</th><th>Куда</th>
+    </tr></thead><tbody></tbody></table></div>
+    <p class="note" id="planNote"></p>
+  </div>
+</div>
+
+<!-- Логистика -->
+<div class="panel" id="panel-logistics">
+  <div class="grid2">
+    <div class="card"><h2>Экономия</h2><div id="logKpi"></div></div>
+    <div class="card"><h2>ИЛ</h2><div id="locKpi"></div></div>
+  </div>
+  <div class="card"><h2>Логистика по SKU</h2>
+    <input class="search" id="searchLog" placeholder="Поиск…">
+    <div class="scroll"><table id="tableLog"><thead><tr>
+      <th>Артикул</th><th class="num">Лог. 90д</th><th class="num">₽/шт</th>
+      <th class="num">ИЛ</th><th class="num">Экономия</th><th>Реком.</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- Минус / P&L -->
+<div class="panel" id="panel-minus">
+  <div class="kpi" id="minusKpi"></div>
+  <div class="grid2">
+    <div class="card"><h2>🔴 В минусе на неделе</h2>
+      <input class="search" id="searchMinus" placeholder="Поиск…">
+      <div class="scroll"><table id="tableMinus"><thead><tr>
+        <th>Артикул</th><th class="num">Прибыль W1</th><th class="num">W0</th>
+        <th class="num">forPay</th><th class="num">Реклама</th><th class="num">ДРР</th>
+        <th class="num">Остаток</th><th>Действие</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card"><h2>🟢 В плюсе — не ломать</h2>
+      <div class="scroll"><table id="tableGreen"><thead><tr>
+        <th>Артикул</th><th class="num">Прибыль W1</th><th class="num">Продажи</th>
+        <th class="num">ДРР</th><th class="num">ROAS</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+  <div class="card"><h2>Залежи — 0 продаж, есть остаток</h2>
+    <div class="scroll"><table id="tableZero"><thead><tr>
+      <th>Артикул</th><th class="num">Остаток</th><th class="num">Реклама W1</th><th>Действие</th>
+    </tr></thead><tbody></tbody></table></div>
+    <p class="note" id="minusNote"></p>
+  </div>
+</div>
+
+<!-- Реклама -->
+<div class="panel" id="panel-ads">
+  <div class="kpi" id="adsKpi"></div>
+  <div class="grid2">
+    <div class="card"><h2>Реклама съедает маржу</h2>
+      <div class="scroll"><table id="tableAdBleed"><thead><tr>
+        <th>Артикул</th><th class="num">Расход W1</th><th class="num">Прибыль</th>
+        <th class="num">ДРР</th><th class="num">ROAS</th><th>Действие</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card"><h2>Кампании за неделю</h2>
+      <div class="scroll"><table id="tableCampaigns"><thead><tr>
+        <th>Кампания / SKU</th><th class="num">Расход</th><th class="num">ДРР</th>
+        <th class="num">Прибыль</th><th>Действие</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+  <div class="card"><h2>Все SKU с рекламой</h2>
+    <input class="search" id="searchAds" placeholder="Поиск…">
+    <div class="scroll"><table id="tableAds"><thead><tr>
+      <th>Артикул</th><th class="num">Расход W1</th><th class="num">Расход 30д</th>
+      <th class="num">ДРР W1</th><th class="num">Прибыль W1</th><th>Рекомендация</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- Остатки -->
+<div class="panel" id="panel-stock">
+  <div class="card"><h2>Остатки WB</h2>
+    <input class="search" id="searchStock" placeholder="Поиск…">
+    <div class="scroll"><table id="tableStock"><thead><tr>
+      <th>Артикул</th><th>Бренд</th><th class="num">Остаток</th><th class="num">В пути</th>
+      <th class="num">/30д</th><th class="num">Дней</th><th>Статус</th><th>Склады</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
+<!-- Ярд -->
+<div class="panel" id="panel-yard">
+  <div class="kpi" id="yardKpi"></div>
+  <div class="card"><h2>Чек-лист Ярд 2.0</h2><div id="yardChecklist"></div></div>
+</div>
+
+<!-- Склады -->
 <div class="panel" id="panel-warehouses">
   <div class="grid2">
-    <div class="card"><h2>Остатки на складах WB сейчас</h2><div id="bars-stock"></div></div>
-    <div class="card"><h2>Куда везти (план довоза)</h2><div id="bars-ship"></div></div>
+    <div class="card"><h2>Остатки</h2><div id="barsStock"></div></div>
+    <div class="card"><h2>План отгрузки</h2><div id="barsShip"></div></div>
   </div>
-  <div id="wh-details"></div>
+  <div class="card"><h2>География спроса</h2><div id="regionBars"></div></div>
 </div>
 
-<div class="panel" id="panel-stock">
-  <div class="card">
-    <h2>Все SKU — текущая оборачиваемость</h2>
-    <input class="search" id="search-all" placeholder="Поиск…">
-    <div class="scroll-table">
-      <table id="table-all"><thead><tr>
-        <th>Артикул</th><th>Статус</th><th class="num">Остаток</th><th class="num">/30д</th><th class="num">Дней</th>
-      </tr></thead><tbody></tbody></table>
-    </div>
-  </div>
-</div>
-
+<!-- Стоп -->
 <div class="panel" id="panel-stop">
-  <div class="card">
-    <h2>⛔ Не грузить — минусовые и перезапас Insight</h2>
-    <div class="scroll-table">
-      <table id="table-stop"><thead><tr>
-        <th>Артикул</th><th>Причина</th><th class="num">Остаток</th><th class="num">/30д</th><th class="num">Дней</th>
-      </tr></thead><tbody></tbody></table>
-    </div>
+  <div class="card"><h2>Стоп-лист</h2>
+    <div class="scroll"><table id="tableStop"><thead><tr>
+      <th>Артикул</th><th>Причина</th><th class="num">Остаток</th><th class="num">/30д</th>
+    </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
-<footer>Обновление: <code>python3 Бизнес/Логистика/scripts/wb_logistics_fetch.py</code> → <code>build_logistics_dashboard.py</code></footer>
+<footer>Обновление: <code>python3 Бизнес/Логистика/scripts/wb_manager_fetch.py</code></footer>
 </div>
 
-<script>
-const DATA = {"meta": {"snap_date": "2026-06-09", "generated": "2026-06-09", "total_stock": 4572, "total_in_way": 568, "total_sold_30d": 3354, "cabinet_days_now": 40.9, "cabinet_days_after": 55.5, "plan_batch": 1630, "plan_sku": 31, "urgent_count": 10, "deficit_count": 5}, "warehouses_stock": [{"name": "Электросталь", "qty": 1813}, {"name": "Краснодар", "qty": 607}, {"name": "Рязань (Тюшевское)", "qty": 448}, {"name": "Екатеринбург - Перспективная 14", "qty": 370}, {"name": "Невинномысск", "qty": 291}, {"name": "СПБ Шушары", "qty": 249}, {"name": "Воронеж", "qty": 179}, {"name": "Тула", "qty": 167}, {"name": "Владимир", "qty": 167}, {"name": "Казань", "qty": 129}, {"name": "Котовск", "qty": 124}, {"name": "Коледино", "qty": 13}, {"name": "Самара (Новосемейкино)", "qty": 5}, {"name": "Волгоград", "qty": 3}, {"name": "СК Ереван", "qty": 2}], "warehouses_plan": [{"name": "Электросталь", "qty": 570, "sku_count": 31}, {"name": "Краснодар", "qty": 292, "sku_count": 27}, {"name": "Рязань", "qty": 193, "sku_count": 26}, {"name": "Екб", "qty": 52, "sku_count": 26}, {"name": "Казань", "qty": 163, "sku_count": 25}, {"name": "СПБ Шушары", "qty": 130, "sku_count": 24}, {"name": "Невинномысск", "qty": 89, "sku_count": 25}], "skus_plan": [{"nm_id": 838634870, "sku": "Интегра с кроликом для кошек диаб", "brand": "Animonda", "stock": 0, "in_way": 4, "sold_30d": 128, "days_now": 0.0, "batch": 150, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 52, "Краснодар": 27, "Рязань": 18, "Екб": 2, "Перспективный)": 18, "Казань": 15, "СПБ Шушары": 12, "Невинномысск": 8}, "in_plan": true}, {"nm_id": 838634871, "sku": "Интегра с индейкой для кошек диаб", "brand": "Animonda", "stock": 0, "in_way": 24, "sold_30d": 127, "days_now": 0.0, "batch": 149, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 52, "Краснодар": 27, "Рязань": 18, "Екб": 2, "Перспективный)": 18, "Казань": 15, "СПБ Шушары": 12, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 861413727, "sku": "TetraReptoMin 500ml Sticks", "brand": "TETRA", "stock": 0, "in_way": 10, "sold_30d": 121, "days_now": 0.0, "batch": 142, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 50, "Краснодар": 26, "Рязань": 17, "Екб": 2, "Перспективный)": 17, "Казань": 14, "СПБ Шушары": 11, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 996324211, "sku": "интегра с лососем 100 г", "brand": "Animonda", "stock": 0, "in_way": 1, "sold_30d": 24, "days_now": 0.0, "batch": 28, "days_after": 35.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 10, "Краснодар": 5, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 379745187, "sku": "Анатомия Неттера", "brand": "Эксмо", "stock": 0, "in_way": 1, "sold_30d": 21, "days_now": 0.0, "batch": 25, "days_after": 35.7, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 9, "Краснодар": 4, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 2, "СПБ Шушары": 2, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 497285247, "sku": "Меркурий 201.7 NEW", "brand": "Инкотекс СК", "stock": 0, "in_way": 2, "sold_30d": 8, "days_now": 0.0, "batch": 10, "days_after": 37.5, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 4, "Краснодар": 2, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 309732880, "sku": "IDR/001/003/(222/277)", "brand": "INsight", "stock": 0, "in_way": 0, "sold_30d": 2, "days_now": 0.0, "batch": 3, "days_after": 45.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Краснодар": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 309561668, "sku": "IDU/007/009/(390/444)", "brand": "INsight", "stock": 0, "in_way": 1, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 366078927, "sku": "INT157/790", "brand": "INsight", "stock": 0, "in_way": 1, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 1009460766, "sku": "ICO/016/018", "brand": "INsight", "stock": 0, "in_way": 0, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 893436136, "sku": "8in1 Exsel Calcium 155Tb", "brand": "8IN1", "stock": 1, "in_way": 16, "sold_30d": 105, "days_now": 0.3, "batch": 122, "days_after": 35.1, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 43, "Краснодар": 22, "Рязань": 15, "Екб": 2, "Перспективный)": 15, "Казань": 12, "СПБ Шушары": 10, "Невинномысск": 5}, "in_plan": true}, {"nm_id": 379845825, "sku": "академия вампиров", "brand": "Эксмо", "stock": 1, "in_way": 3, "sold_30d": 36, "days_now": 0.8, "batch": 41, "days_after": 35.0, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 14, "Краснодар": 7, "Рязань": 5, "Екб": 2, "Перспективный)": 5, "Казань": 4, "СПБ Шушары": 3, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 309931115, "sku": "IDA/310/311/(548/425)", "brand": "INsight", "stock": 12, "in_way": 6, "sold_30d": 38, "days_now": 9.5, "batch": 33, "days_after": 35.5, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 12, "Краснодар": 6, "Рязань": 4, "Екб": 2, "Перспективный)": 4, "Казань": 3, "СПБ Шушары": 3, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 864873556, "sku": "Energy Cool M", "brand": "Askona", "stock": 34, "in_way": 19, "sold_30d": 103, "days_now": 9.9, "batch": 87, "days_after": 35.2, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 30, "Краснодар": 16, "Рязань": 10, "Екб": 2, "Перспективный)": 10, "Казань": 9, "СПБ Шушары": 7, "Невинномысск": 5}, "in_plan": true}, {"nm_id": 446389957, "sku": "Меркурий 201.7", "brand": "Инкотекс СК", "stock": 88, "in_way": 46, "sold_30d": 218, "days_now": 12.1, "batch": 167, "days_after": 35.1, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 58, "Краснодар": 30, "Рязань": 20, "Екб": 2, "Перспективный)": 20, "Казань": 17, "СПБ Шушары": 13, "Невинномысск": 9}, "in_plan": true}, {"nm_id": 366045963, "sku": "IST209", "brand": "INsight", "stock": 1, "in_way": 0, "sold_30d": 2, "days_now": 15.0, "batch": 2, "days_after": 45.0, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 943834322, "sku": "Меркурий 201.7 Новинка", "brand": "Инкотекс СК", "stock": 55, "in_way": 17, "sold_30d": 107, "days_now": 15.4, "batch": 70, "days_after": 35.0, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 24, "Краснодар": 13, "Рязань": 8, "Екб": 2, "Перспективный)": 8, "Казань": 7, "СПБ Шушары": 6, "Невинномысск": 4}, "in_plan": true}, {"nm_id": 755026289, "sku": "8in1 Excel Multi Vit-Puppy 100TB", "brand": "8IN1", "stock": 111, "in_way": 29, "sold_30d": 211, "days_now": 15.8, "batch": 136, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 48, "Краснодар": 24, "Рязань": 16, "Екб": 2, "Перспективный)": 16, "Казань": 14, "СПБ Шушары": 11, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 624907280, "sku": "8in1 Excel Glucosamine 55TB", "brand": "8IN1", "stock": 77, "in_way": 19, "sold_30d": 139, "days_now": 16.6, "batch": 86, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 30, "Краснодар": 15, "Рязань": 10, "Екб": 2, "Перспективный)": 10, "Казань": 9, "СПБ Шушары": 7, "Невинномысск": 5}, "in_plan": true}, {"nm_id": 897956796, "sku": "RAT & MOUSE COMPLETE  2кг", "brand": "versele-Laga", "stock": 45, "in_way": 15, "sold_30d": 77, "days_now": 17.5, "batch": 44, "days_after": 34.7, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 15, "Краснодар": 8, "Рязань": 5, "Екб": 2, "Перспективный)": 5, "Казань": 4, "СПБ Шушары": 4, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 553745685, "sku": "Лента Флэхендихтбанд 10 м", "brand": "Knauf", "stock": 70, "in_way": 22, "sold_30d": 116, "days_now": 18.1, "batch": 66, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 23, "Краснодар": 12, "Рязань": 8, "Екб": 2, "Перспективный)": 8, "Казань": 7, "СПБ Шушары": 5, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 309931114, "sku": "MIDA210/388", "brand": "INsight", "stock": 34, "in_way": 4, "sold_30d": 47, "days_now": 21.7, "batch": 21, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 7, "Краснодар": 4, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 2, "СПБ Шушары": 2}, "in_plan": true}, {"nm_id": 772818535, "sku": "8in1 Exsel Glucosamine 110Tb", "brand": "8IN1", "stock": 66, "in_way": 14, "sold_30d": 86, "days_now": 23.0, "batch": 35, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 12, "Краснодар": 6, "Рязань": 4, "Екб": 2, "Перспективный)": 4, "Казань": 4, "СПБ Шушары": 3, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 587971981, "sku": "8in1 Excel Multi Vit. Senior 70TB", "brand": "8IN1", "stock": 130, "in_way": 26, "sold_30d": 163, "days_now": 23.9, "batch": 61, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 21, "Краснодар": 11, "Рязань": 7, "Екб": 2, "Перспективный)": 7, "Казань": 6, "СПБ Шушары": 5, "Невинномысск": 4}, "in_plan": true}, {"nm_id": 553706860, "sku": "Флэхендихт 5 кг", "brand": "Knauf", "stock": 64, "in_way": 6, "sold_30d": 79, "days_now": 24.3, "batch": 29, "days_after": 35.3, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 10, "Краснодар": 5, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 503300716, "sku": "IDA015/604 NEW", "brand": "INsight", "stock": 21, "in_way": 1, "sold_30d": 25, "days_now": 25.2, "batch": 9, "days_after": 36.0, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 3, "Краснодар": 2, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 536822091, "sku": "Multi VitaminSmallBreed 70 шт", "brand": "8IN1", "stock": 155, "in_way": 33, "sold_30d": 182, "days_now": 25.5, "batch": 58, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 20, "Краснодар": 10, "Рязань": 7, "Екб": 2, "Перспективный)": 7, "Казань": 6, "СПБ Шушары": 5, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 897956795, "sku": "CAVIA COMPLETE  1,75 кг", "brand": "versele-Laga", "stock": 86, "in_way": 13, "sold_30d": 100, "days_now": 25.8, "batch": 31, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 11, "Краснодар": 6, "Рязань": 4, "Екб": 2, "Перспективный)": 4, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 309753742, "sku": "MIRE062/796", "brand": "INsight", "stock": 26, "in_way": 4, "sold_30d": 29, "days_now": 26.9, "batch": 8, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 3, "Краснодар": 1, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 893308608, "sku": "сковорода блинная BONIRON чуг. 24 см", "brand": "BONIRON", "stock": 20, "in_way": 6, "sold_30d": 22, "days_now": 27.3, "batch": 6, "days_after": 35.5, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 2, "Краснодар": 1, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1}, "in_plan": true}, {"nm_id": 309753741, "sku": "MIRE061/802", "brand": "INsight", "stock": 26, "in_way": 4, "sold_30d": 26, "days_now": 30.0, "batch": 5, "days_after": 35.8, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 2, "Краснодар": 1, "Рязань": 1, "Екб": 2, "Перспективный)": 1}, "in_plan": true}], "skus_all": [{"nm_id": 446389957, "sku": "Меркурий 201.7", "brand": "Инкотекс СК", "stock": 88, "in_way": 46, "sold_30d": 218, "days_now": 12.1, "batch": 167, "days_after": 35.1, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 58, "Краснодар": 30, "Рязань": 20, "Екб": 2, "Перспективный)": 20, "Казань": 17, "СПБ Шушары": 13, "Невинномысск": 9}, "in_plan": true}, {"nm_id": 755026289, "sku": "8in1 Excel Multi Vit-Puppy 100TB", "brand": "8IN1", "stock": 111, "in_way": 29, "sold_30d": 211, "days_now": 15.8, "batch": 136, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 48, "Краснодар": 24, "Рязань": 16, "Екб": 2, "Перспективный)": 16, "Казань": 14, "СПБ Шушары": 11, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 536822091, "sku": "Multi VitaminSmallBreed 70 шт", "brand": "8IN1", "stock": 155, "in_way": 33, "sold_30d": 182, "days_now": 25.5, "batch": 58, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 20, "Краснодар": 10, "Рязань": 7, "Екб": 2, "Перспективный)": 7, "Казань": 6, "СПБ Шушары": 5, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 587971981, "sku": "8in1 Excel Multi Vit. Senior 70TB", "brand": "8IN1", "stock": 130, "in_way": 26, "sold_30d": 163, "days_now": 23.9, "batch": 61, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 21, "Краснодар": 11, "Рязань": 7, "Екб": 2, "Перспективный)": 7, "Казань": 6, "СПБ Шушары": 5, "Невинномысск": 4}, "in_plan": true}, {"nm_id": 624907280, "sku": "8in1 Excel Glucosamine 55TB", "brand": "8IN1", "stock": 77, "in_way": 19, "sold_30d": 139, "days_now": 16.6, "batch": 86, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 30, "Краснодар": 15, "Рязань": 10, "Екб": 2, "Перспективный)": 10, "Казань": 9, "СПБ Шушары": 7, "Невинномысск": 5}, "in_plan": true}, {"nm_id": 838593982, "sku": "Интегра с курицей для кошек диаб", "brand": "Animonda", "stock": 226, "in_way": 11, "sold_30d": 131, "days_now": 51.8, "batch": 0, "days_after": 51.8, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 838634870, "sku": "Интегра с кроликом для кошек диаб", "brand": "Animonda", "stock": 0, "in_way": 4, "sold_30d": 128, "days_now": 0.0, "batch": 150, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 52, "Краснодар": 27, "Рязань": 18, "Екб": 2, "Перспективный)": 18, "Казань": 15, "СПБ Шушары": 12, "Невинномысск": 8}, "in_plan": true}, {"nm_id": 838634871, "sku": "Интегра с индейкой для кошек диаб", "brand": "Animonda", "stock": 0, "in_way": 24, "sold_30d": 127, "days_now": 0.0, "batch": 149, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 52, "Краснодар": 27, "Рязань": 18, "Екб": 2, "Перспективный)": 18, "Казань": 15, "СПБ Шушары": 12, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 861413727, "sku": "TetraReptoMin 500ml Sticks", "brand": "TETRA", "stock": 0, "in_way": 10, "sold_30d": 121, "days_now": 0.0, "batch": 142, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 50, "Краснодар": 26, "Рязань": 17, "Екб": 2, "Перспективный)": 17, "Казань": 14, "СПБ Шушары": 11, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 553745685, "sku": "Лента Флэхендихтбанд 10 м", "brand": "Knauf", "stock": 70, "in_way": 22, "sold_30d": 116, "days_now": 18.1, "batch": 66, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 23, "Краснодар": 12, "Рязань": 8, "Екб": 2, "Перспективный)": 8, "Казань": 7, "СПБ Шушары": 5, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 943834322, "sku": "Меркурий 201.7 Новинка", "brand": "Инкотекс СК", "stock": 55, "in_way": 17, "sold_30d": 107, "days_now": 15.4, "batch": 70, "days_after": 35.0, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 24, "Краснодар": 13, "Рязань": 8, "Екб": 2, "Перспективный)": 8, "Казань": 7, "СПБ Шушары": 6, "Невинномысск": 4}, "in_plan": true}, {"nm_id": 893436136, "sku": "8in1 Exsel Calcium 155Tb", "brand": "8IN1", "stock": 1, "in_way": 16, "sold_30d": 105, "days_now": 0.3, "batch": 122, "days_after": 35.1, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 43, "Краснодар": 22, "Рязань": 15, "Екб": 2, "Перспективный)": 15, "Казань": 12, "СПБ Шушары": 10, "Невинномысск": 5}, "in_plan": true}, {"nm_id": 864873556, "sku": "Energy Cool M", "brand": "Askona", "stock": 34, "in_way": 19, "sold_30d": 103, "days_now": 9.9, "batch": 87, "days_after": 35.2, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 30, "Краснодар": 16, "Рязань": 10, "Екб": 2, "Перспективный)": 10, "Казань": 9, "СПБ Шушары": 7, "Невинномысск": 5}, "in_plan": true}, {"nm_id": 897956795, "sku": "CAVIA COMPLETE  1,75 кг", "brand": "versele-Laga", "stock": 86, "in_way": 13, "sold_30d": 100, "days_now": 25.8, "batch": 31, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 11, "Краснодар": 6, "Рязань": 4, "Екб": 2, "Перспективный)": 4, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 760455533, "sku": "CUNI ADULT COMPLETE кролики 1,75 кг", "brand": "versele-Laga", "stock": 175, "in_way": 34, "sold_30d": 93, "days_now": 56.5, "batch": 0, "days_after": 56.5, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 772834184, "sku": "8in1 Excel Brewer's Yeast l.b. 80TB", "brand": "8IN1", "stock": 128, "in_way": 24, "sold_30d": 93, "days_now": 41.3, "batch": 0, "days_after": 41.3, "status": "ok", "status_label": "Норма", "warehouses": {}, "in_plan": false}, {"nm_id": 772818535, "sku": "8in1 Exsel Glucosamine 110Tb", "brand": "8IN1", "stock": 66, "in_way": 14, "sold_30d": 86, "days_now": 23.0, "batch": 35, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 12, "Краснодар": 6, "Рязань": 4, "Екб": 2, "Перспективный)": 4, "Казань": 4, "СПБ Шушары": 3, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 755019816, "sku": "8in1 Excel Multi Vit-Adult 70TB", "brand": "8IN1", "stock": 179, "in_way": 13, "sold_30d": 81, "days_now": 66.3, "batch": 0, "days_after": 66.3, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 553706860, "sku": "Флэхендихт 5 кг", "brand": "Knauf", "stock": 64, "in_way": 6, "sold_30d": 79, "days_now": 24.3, "batch": 29, "days_after": 35.3, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 10, "Краснодар": 5, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 897956796, "sku": "RAT & MOUSE COMPLETE  2кг", "brand": "versele-Laga", "stock": 45, "in_way": 15, "sold_30d": 77, "days_now": 17.5, "batch": 44, "days_after": 34.7, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 15, "Краснодар": 8, "Рязань": 5, "Екб": 2, "Перспективный)": 5, "Казань": 4, "СПБ Шушары": 4, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 897951822, "sku": "CHINCHILLA & DEGU COMPLETE 1,75кг", "brand": "versele-Laga", "stock": 239, "in_way": 17, "sold_30d": 69, "days_now": 103.9, "batch": 0, "days_after": 103.9, "status": "excess", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 881624427, "sku": "Интегра с говядиной для кошек диаб", "brand": "Animonda", "stock": 80, "in_way": 25, "sold_30d": 63, "days_now": 38.1, "batch": 0, "days_after": 38.1, "status": "ok", "status_label": "Норма", "warehouses": {}, "in_plan": false}, {"nm_id": 309931114, "sku": "MIDA210/388", "brand": "INsight", "stock": 34, "in_way": 4, "sold_30d": 47, "days_now": 21.7, "batch": 21, "days_after": 35.1, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 7, "Краснодар": 4, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 2, "СПБ Шушары": 2}, "in_plan": true}, {"nm_id": 996324210, "sku": "Интегра с индейкой 85 г", "brand": "Animonda", "stock": 86, "in_way": 6, "sold_30d": 40, "days_now": 64.5, "batch": 0, "days_after": 64.5, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 309931115, "sku": "IDA/310/311/(548/425)", "brand": "INsight", "stock": 12, "in_way": 6, "sold_30d": 38, "days_now": 9.5, "batch": 33, "days_after": 35.5, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 12, "Краснодар": 6, "Рязань": 4, "Екб": 2, "Перспективный)": 4, "Казань": 3, "СПБ Шушары": 3, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 379845825, "sku": "академия вампиров", "brand": "Эксмо", "stock": 1, "in_way": 3, "sold_30d": 36, "days_now": 0.8, "batch": 41, "days_after": 35.0, "status": "deficit", "status_label": "Дефицит", "warehouses": {"Электросталь": 14, "Краснодар": 7, "Рязань": 5, "Екб": 2, "Перспективный)": 5, "Казань": 4, "СПБ Шушары": 3, "Невинномысск": 3}, "in_plan": true}, {"nm_id": 877791959, "sku": "Sleep Memory M", "brand": "Askona", "stock": 78, "in_way": 6, "sold_30d": 36, "days_now": 65.0, "batch": 0, "days_after": 65.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 833719919, "sku": "MIDA310", "brand": "INsight", "stock": 65, "in_way": 2, "sold_30d": 30, "days_now": 65.0, "batch": 0, "days_after": 65.0, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 309753742, "sku": "MIRE062/796", "brand": "INsight", "stock": 26, "in_way": 4, "sold_30d": 29, "days_now": 26.9, "batch": 8, "days_after": 35.2, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 3, "Краснодар": 1, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 309753741, "sku": "MIRE061/802", "brand": "INsight", "stock": 26, "in_way": 4, "sold_30d": 26, "days_now": 30.0, "batch": 5, "days_after": 35.8, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 2, "Краснодар": 1, "Рязань": 1, "Екб": 2, "Перспективный)": 1}, "in_plan": true}, {"nm_id": 503300716, "sku": "IDA015/604 NEW", "brand": "INsight", "stock": 21, "in_way": 1, "sold_30d": 25, "days_now": 25.2, "batch": 9, "days_after": 36.0, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 3, "Краснодар": 2, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 310048500, "sku": "IDA311/425", "brand": "INsight", "stock": 41, "in_way": 1, "sold_30d": 24, "days_now": 51.2, "batch": 0, "days_after": 51.2, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 996324211, "sku": "интегра с лососем 100 г", "brand": "Animonda", "stock": 0, "in_way": 1, "sold_30d": 24, "days_now": 0.0, "batch": 28, "days_after": 35.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 10, "Краснодар": 5, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 401691622, "sku": "Ведьмак", "brand": "Издательство АСТ", "stock": 18, "in_way": 8, "sold_30d": 22, "days_now": 24.5, "batch": 0, "days_after": 24.5, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 815137523, "sku": "набор Fjord х 2 лимон", "brand": "Fjord", "stock": 66, "in_way": 7, "sold_30d": 22, "days_now": 90.0, "batch": 0, "days_after": 90.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 893308608, "sku": "сковорода блинная BONIRON чуг. 24 см", "brand": "BONIRON", "stock": 20, "in_way": 6, "sold_30d": 22, "days_now": 27.3, "batch": 6, "days_after": 35.5, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 2, "Краснодар": 1, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1}, "in_plan": true}, {"nm_id": 309937158, "sku": "IDA044/598", "brand": "INsight", "stock": 45, "in_way": 0, "sold_30d": 21, "days_now": 64.3, "batch": 0, "days_after": 64.3, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 379745187, "sku": "Анатомия Неттера", "brand": "Эксмо", "stock": 0, "in_way": 1, "sold_30d": 21, "days_now": 0.0, "batch": 25, "days_after": 35.7, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 9, "Краснодар": 4, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 2, "СПБ Шушары": 2, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 309561667, "sku": "MIDU310/678", "brand": "INsight", "stock": 48, "in_way": 7, "sold_30d": 20, "days_now": 72.0, "batch": 0, "days_after": 72.0, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 310351087, "sku": "MIVO132/342", "brand": "INsight", "stock": 54, "in_way": 3, "sold_30d": 20, "days_now": 81.0, "batch": 0, "days_after": 81.0, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 815077881, "sku": "Флэхендихт 5 кг NEW", "brand": "Knauf", "stock": 65, "in_way": 5, "sold_30d": 20, "days_now": 97.5, "batch": 0, "days_after": 97.5, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309937160, "sku": "IDA014/581", "brand": "INsight", "stock": 31, "in_way": 3, "sold_30d": 19, "days_now": 48.9, "batch": 0, "days_after": 48.9, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 893479865, "sku": "Vitamine B Сomplex 50 мл", "brand": "beaphar", "stock": 21, "in_way": 2, "sold_30d": 14, "days_now": 45.0, "batch": 0, "days_after": 45.0, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 524489966, "sku": "Трилогия Мара и Морок NEW", "brand": "Эксмо", "stock": 16, "in_way": 6, "sold_30d": 13, "days_now": 36.9, "batch": 0, "days_after": 36.9, "status": "ok", "status_label": "Норма", "warehouses": {}, "in_plan": false}, {"nm_id": 309724789, "sku": "MIDR310/562", "brand": "INsight", "stock": 77, "in_way": 1, "sold_30d": 9, "days_now": 256.7, "batch": 0, "days_after": 256.7, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309750700, "sku": "IDR312-B", "brand": "INsight", "stock": 56, "in_way": 2, "sold_30d": 9, "days_now": 186.7, "batch": 0, "days_after": 186.7, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 310319991, "sku": "IVO134/366", "brand": "INsight", "stock": 17, "in_way": 2, "sold_30d": 9, "days_now": 56.7, "batch": 0, "days_after": 56.7, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 833708324, "sku": "MIDU210", "brand": "INsight", "stock": 69, "in_way": 3, "sold_30d": 9, "days_now": 230.0, "batch": 0, "days_after": 230.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 893483021, "sku": "Kitty's Mix 180 табл", "brand": "beaphar", "stock": 35, "in_way": 1, "sold_30d": 9, "days_now": 116.7, "batch": 0, "days_after": 116.7, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309732878, "sku": "IDR/310/311/(562/579)", "brand": "INsight", "stock": 44, "in_way": 0, "sold_30d": 8, "days_now": 165.0, "batch": 0, "days_after": 165.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309863833, "sku": "МICO016/659", "brand": "INsight", "stock": 74, "in_way": 2, "sold_30d": 8, "days_now": 277.5, "batch": 0, "days_after": 277.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 310138942, "sku": "MICL190/741", "brand": "INsight", "stock": 23, "in_way": 1, "sold_30d": 8, "days_now": 86.2, "batch": 0, "days_after": 86.2, "status": "high", "status_label": "Много", "warehouses": {}, "in_plan": false}, {"nm_id": 497285247, "sku": "Меркурий 201.7 NEW", "brand": "Инкотекс СК", "stock": 0, "in_way": 2, "sold_30d": 8, "days_now": 0.0, "batch": 10, "days_after": 37.5, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 4, "Краснодар": 2, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 877788280, "sku": "сковорода блинная BONIRON чуг. 20 см", "brand": "BONIRON", "stock": 27, "in_way": 11, "sold_30d": 8, "days_now": 101.2, "batch": 0, "days_after": 101.2, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309743633, "sku": "IDR311/579", "brand": "INsight", "stock": 43, "in_way": 3, "sold_30d": 6, "days_now": 215.0, "batch": 0, "days_after": 215.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310116314, "sku": "MIDE192/765", "brand": "INsight", "stock": 26, "in_way": 1, "sold_30d": 6, "days_now": 130.0, "batch": 0, "days_after": 130.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310138943, "sku": "MICL189/494", "brand": "INsight", "stock": 40, "in_way": 0, "sold_30d": 6, "days_now": 200.0, "batch": 0, "days_after": 200.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310351086, "sku": "MIVO131/335", "brand": "INsight", "stock": 73, "in_way": 1, "sold_30d": 6, "days_now": 365.0, "batch": 0, "days_after": 365.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 310527800, "sku": "IAF011/505", "brand": "INsight", "stock": 23, "in_way": 2, "sold_30d": 6, "days_now": 115.0, "batch": 0, "days_after": 115.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 833715219, "sku": "ICO/310/311/", "brand": "INsight", "stock": 61, "in_way": 1, "sold_30d": 6, "days_now": 305.0, "batch": 0, "days_after": 305.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 861511866, "sku": "Tetra Cichlid Sticks 1L", "brand": "TETRA", "stock": 29, "in_way": 1, "sold_30d": 6, "days_now": 145.0, "batch": 0, "days_after": 145.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309671204, "sku": "IDU039/451", "brand": "INsight", "stock": 54, "in_way": 0, "sold_30d": 4, "days_now": 405.0, "batch": 0, "days_after": 405.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309671205, "sku": "IDU009/444", "brand": "INsight", "stock": 57, "in_way": 0, "sold_30d": 4, "days_now": 427.5, "batch": 0, "days_after": 427.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309686880, "sku": "IDU038/437", "brand": "INsight", "stock": 44, "in_way": 0, "sold_30d": 4, "days_now": 330.0, "batch": 0, "days_after": 330.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309732877, "sku": "MIDR210/456", "brand": "INsight", "stock": 81, "in_way": 1, "sold_30d": 4, "days_now": 607.5, "batch": 0, "days_after": 607.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309745519, "sku": "IDR003/277", "brand": "INsight", "stock": 50, "in_way": 0, "sold_30d": 4, "days_now": 375.0, "batch": 0, "days_after": 375.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309750701, "sku": "IDR002/253", "brand": "INsight", "stock": 60, "in_way": 1, "sold_30d": 4, "days_now": 450.0, "batch": 0, "days_after": 450.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 310517540, "sku": "IAF012/529", "brand": "INsight", "stock": 49, "in_way": 0, "sold_30d": 4, "days_now": 367.5, "batch": 0, "days_after": 367.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 861947902, "sku": "Enzycal Zero 0+ 75мл", "brand": "Curaprox", "stock": 0, "in_way": 1, "sold_30d": 4, "days_now": 0.0, "batch": 0, "days_after": 0.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309863834, "sku": "MICO310/326", "brand": "INsight", "stock": 76, "in_way": 0, "sold_30d": 3, "days_now": 760.0, "batch": 0, "days_after": 760.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309899200, "sku": "ICO017/680", "brand": "INsight", "stock": 57, "in_way": 0, "sold_30d": 3, "days_now": 570.0, "batch": 0, "days_after": 570.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310527799, "sku": "IAF041/512", "brand": "INsight", "stock": 52, "in_way": 1, "sold_30d": 3, "days_now": 520.0, "batch": 0, "days_after": 520.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 799819331, "sku": "vetonit розовая", "brand": "Vetonit", "stock": 0, "in_way": 0, "sold_30d": 3, "days_now": 0.0, "batch": 0, "days_after": 0.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 833713327, "sku": "MIDU310/311", "brand": "INsight", "stock": 67, "in_way": 0, "sold_30d": 3, "days_now": 670.0, "batch": 0, "days_after": 670.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 841710361, "sku": "MIAF40", "brand": "INsight", "stock": 44, "in_way": 0, "sold_30d": 3, "days_now": 440.0, "batch": 0, "days_after": 440.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309732880, "sku": "IDR/001/003/(222/277)", "brand": "INsight", "stock": 0, "in_way": 0, "sold_30d": 2, "days_now": 0.0, "batch": 3, "days_after": 45.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Краснодар": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 310367298, "sku": "MIAF10/475", "brand": "INsight", "stock": 52, "in_way": 0, "sold_30d": 2, "days_now": 780.0, "batch": 0, "days_after": 780.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310367299, "sku": "MIAF40/482", "brand": "INsight", "stock": 10, "in_way": 0, "sold_30d": 2, "days_now": 150.0, "batch": 0, "days_after": 150.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310517539, "sku": "IAF311/043", "brand": "INsight", "stock": 51, "in_way": 0, "sold_30d": 2, "days_now": 765.0, "batch": 0, "days_after": 765.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 366045963, "sku": "IST209", "brand": "INsight", "stock": 1, "in_way": 0, "sold_30d": 2, "days_now": 15.0, "batch": 2, "days_after": 45.0, "status": "ok", "status_label": "Норма", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 309561668, "sku": "IDU/007/009/(390/444)", "brand": "INsight", "stock": 0, "in_way": 1, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 309899199, "sku": "ICO047/697", "brand": "INsight", "stock": 53, "in_way": 0, "sold_30d": 1, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 366078927, "sku": "INT157/790", "brand": "INsight", "stock": 0, "in_way": 1, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 1009460766, "sku": "ICO/016/018", "brand": "INsight", "stock": 0, "in_way": 0, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 1009465349, "sku": "ICO018", "brand": "INsight", "stock": 23, "in_way": 0, "sold_30d": 1, "days_now": 690.0, "batch": 0, "days_after": 690.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 1009471693, "sku": "IAF/040/042", "brand": "INsight", "stock": 17, "in_way": 0, "sold_30d": 1, "days_now": 510.0, "batch": 0, "days_after": 510.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309686881, "sku": "IDU212", "brand": "INsight", "stock": 36, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309745520, "sku": "", "brand": "INsight", "stock": 1, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309915376, "sku": "ICO048/710", "brand": "INsight", "stock": 54, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310518608, "sku": "", "brand": "INsight", "stock": 1, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 318655646, "sku": "MIAO034", "brand": "INsight", "stock": 1, "in_way": 1, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 355704677, "sku": "IEC199", "brand": "INsight", "stock": 6, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 355839182, "sku": "IEC200", "brand": "INsight", "stock": 3, "in_way": 1, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 355928102, "sku": "IAO005", "brand": "INsight", "stock": 5, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 358074809, "sku": "MIBL177", "brand": "INsight", "stock": 9, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 366060473, "sku": "IST027/871", "brand": "INsight", "stock": 4, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 379136709, "sku": "библия коричневая ", "brand": "Эксмо", "stock": 0, "in_way": 0, "sold_30d": 0, "days_now": 0, "batch": 0, "days_after": 0, "status": "frozen", "status_label": "Заморозка", "warehouses": {}, "in_plan": false}, {"nm_id": 799819330, "sku": "vetonit серая", "brand": "Vetonit", "stock": 1, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 841703962, "sku": "MIDE193", "brand": "INsight", "stock": 43, "in_way": 1, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 861836184, "sku": "", "brand": "beaphar", "stock": 10, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 861915196, "sku": "", "brand": "Curaprox", "stock": 0, "in_way": 1, "sold_30d": 0, "days_now": 0, "batch": 0, "days_after": 0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 862199090, "sku": "Kids 1450 арбуз 6+", "brand": "Curaprox", "stock": 0, "in_way": 1, "sold_30d": 0, "days_now": 0, "batch": 0, "days_after": 0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}], "stop_list": [{"nm_id": 877791959, "sku": "Sleep Memory M", "brand": "Askona", "stock": 78, "in_way": 6, "sold_30d": 36, "days_now": 65.0, "batch": 0, "days_after": 65.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 401691622, "sku": "Ведьмак", "brand": "Издательство АСТ", "stock": 18, "in_way": 8, "sold_30d": 22, "days_now": 24.5, "batch": 0, "days_after": 24.5, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 815137523, "sku": "набор Fjord х 2 лимон", "brand": "Fjord", "stock": 66, "in_way": 7, "sold_30d": 22, "days_now": 90.0, "batch": 0, "days_after": 90.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 815077881, "sku": "Флэхендихт 5 кг NEW", "brand": "Knauf", "stock": 65, "in_way": 5, "sold_30d": 20, "days_now": 97.5, "batch": 0, "days_after": 97.5, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309724789, "sku": "MIDR310/562", "brand": "INsight", "stock": 77, "in_way": 1, "sold_30d": 9, "days_now": 256.7, "batch": 0, "days_after": 256.7, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309750700, "sku": "IDR312-B", "brand": "INsight", "stock": 56, "in_way": 2, "sold_30d": 9, "days_now": 186.7, "batch": 0, "days_after": 186.7, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 833708324, "sku": "MIDU210", "brand": "INsight", "stock": 69, "in_way": 3, "sold_30d": 9, "days_now": 230.0, "batch": 0, "days_after": 230.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 893483021, "sku": "Kitty's Mix 180 табл", "brand": "beaphar", "stock": 35, "in_way": 1, "sold_30d": 9, "days_now": 116.7, "batch": 0, "days_after": 116.7, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309732878, "sku": "IDR/310/311/(562/579)", "brand": "INsight", "stock": 44, "in_way": 0, "sold_30d": 8, "days_now": 165.0, "batch": 0, "days_after": 165.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309863833, "sku": "МICO016/659", "brand": "INsight", "stock": 74, "in_way": 2, "sold_30d": 8, "days_now": 277.5, "batch": 0, "days_after": 277.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 877788280, "sku": "сковорода блинная BONIRON чуг. 20 см", "brand": "BONIRON", "stock": 27, "in_way": 11, "sold_30d": 8, "days_now": 101.2, "batch": 0, "days_after": 101.2, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309743633, "sku": "IDR311/579", "brand": "INsight", "stock": 43, "in_way": 3, "sold_30d": 6, "days_now": 215.0, "batch": 0, "days_after": 215.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310116314, "sku": "MIDE192/765", "brand": "INsight", "stock": 26, "in_way": 1, "sold_30d": 6, "days_now": 130.0, "batch": 0, "days_after": 130.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310138943, "sku": "MICL189/494", "brand": "INsight", "stock": 40, "in_way": 0, "sold_30d": 6, "days_now": 200.0, "batch": 0, "days_after": 200.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310351086, "sku": "MIVO131/335", "brand": "INsight", "stock": 73, "in_way": 1, "sold_30d": 6, "days_now": 365.0, "batch": 0, "days_after": 365.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 310527800, "sku": "IAF011/505", "brand": "INsight", "stock": 23, "in_way": 2, "sold_30d": 6, "days_now": 115.0, "batch": 0, "days_after": 115.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 833715219, "sku": "ICO/310/311/", "brand": "INsight", "stock": 61, "in_way": 1, "sold_30d": 6, "days_now": 305.0, "batch": 0, "days_after": 305.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 861511866, "sku": "Tetra Cichlid Sticks 1L", "brand": "TETRA", "stock": 29, "in_way": 1, "sold_30d": 6, "days_now": 145.0, "batch": 0, "days_after": 145.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309671204, "sku": "IDU039/451", "brand": "INsight", "stock": 54, "in_way": 0, "sold_30d": 4, "days_now": 405.0, "batch": 0, "days_after": 405.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309671205, "sku": "IDU009/444", "brand": "INsight", "stock": 57, "in_way": 0, "sold_30d": 4, "days_now": 427.5, "batch": 0, "days_after": 427.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309686880, "sku": "IDU038/437", "brand": "INsight", "stock": 44, "in_way": 0, "sold_30d": 4, "days_now": 330.0, "batch": 0, "days_after": 330.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309732877, "sku": "MIDR210/456", "brand": "INsight", "stock": 81, "in_way": 1, "sold_30d": 4, "days_now": 607.5, "batch": 0, "days_after": 607.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 309745519, "sku": "IDR003/277", "brand": "INsight", "stock": 50, "in_way": 0, "sold_30d": 4, "days_now": 375.0, "batch": 0, "days_after": 375.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309750701, "sku": "IDR002/253", "brand": "INsight", "stock": 60, "in_way": 1, "sold_30d": 4, "days_now": 450.0, "batch": 0, "days_after": 450.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 310517540, "sku": "IAF012/529", "brand": "INsight", "stock": 49, "in_way": 0, "sold_30d": 4, "days_now": 367.5, "batch": 0, "days_after": 367.5, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 861947902, "sku": "Enzycal Zero 0+ 75мл", "brand": "Curaprox", "stock": 0, "in_way": 1, "sold_30d": 4, "days_now": 0.0, "batch": 0, "days_after": 0.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309863834, "sku": "MICO310/326", "brand": "INsight", "stock": 76, "in_way": 0, "sold_30d": 3, "days_now": 760.0, "batch": 0, "days_after": 760.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309899200, "sku": "ICO017/680", "brand": "INsight", "stock": 57, "in_way": 0, "sold_30d": 3, "days_now": 570.0, "batch": 0, "days_after": 570.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310527799, "sku": "IAF041/512", "brand": "INsight", "stock": 52, "in_way": 1, "sold_30d": 3, "days_now": 520.0, "batch": 0, "days_after": 520.0, "status": "overstock", "status_label": "Перезапас", "warehouses": {}, "in_plan": false}, {"nm_id": 799819331, "sku": "vetonit розовая", "brand": "Vetonit", "stock": 0, "in_way": 0, "sold_30d": 3, "days_now": 0.0, "batch": 0, "days_after": 0.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 833713327, "sku": "MIDU310/311", "brand": "INsight", "stock": 67, "in_way": 0, "sold_30d": 3, "days_now": 670.0, "batch": 0, "days_after": 670.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 841710361, "sku": "MIAF40", "brand": "INsight", "stock": 44, "in_way": 0, "sold_30d": 3, "days_now": 440.0, "batch": 0, "days_after": 440.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310367298, "sku": "MIAF10/475", "brand": "INsight", "stock": 52, "in_way": 0, "sold_30d": 2, "days_now": 780.0, "batch": 0, "days_after": 780.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310367299, "sku": "MIAF40/482", "brand": "INsight", "stock": 10, "in_way": 0, "sold_30d": 2, "days_now": 150.0, "batch": 0, "days_after": 150.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 310517539, "sku": "IAF311/043", "brand": "INsight", "stock": 51, "in_way": 0, "sold_30d": 2, "days_now": 765.0, "batch": 0, "days_after": 765.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309899199, "sku": "ICO047/697", "brand": "INsight", "stock": 53, "in_way": 0, "sold_30d": 1, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 1009465349, "sku": "ICO018", "brand": "INsight", "stock": 23, "in_way": 0, "sold_30d": 1, "days_now": 690.0, "batch": 0, "days_after": 690.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 1009471693, "sku": "IAF/040/042", "brand": "INsight", "stock": 17, "in_way": 0, "sold_30d": 1, "days_now": 510.0, "batch": 0, "days_after": 510.0, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309686881, "sku": "IDU212", "brand": "INsight", "stock": 36, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}, {"nm_id": 309745520, "sku": "", "brand": "INsight", "stock": 1, "in_way": 0, "sold_30d": 0, "days_now": null, "batch": 0, "days_after": null, "status": "minus", "status_label": "Минус RASK", "warehouses": {}, "in_plan": false}], "urgent": [{"nm_id": 309561668, "sku": "IDU/007/009/(390/444)", "brand": "INsight", "stock": 0, "in_way": 1, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 309732880, "sku": "IDR/001/003/(222/277)", "brand": "INsight", "stock": 0, "in_way": 0, "sold_30d": 2, "days_now": 0.0, "batch": 3, "days_after": 45.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Краснодар": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 366078927, "sku": "INT157/790", "brand": "INsight", "stock": 0, "in_way": 1, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}, {"nm_id": 379745187, "sku": "Анатомия Неттера", "brand": "Эксмо", "stock": 0, "in_way": 1, "sold_30d": 21, "days_now": 0.0, "batch": 25, "days_after": 35.7, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 9, "Краснодар": 4, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 2, "СПБ Шушары": 2, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 497285247, "sku": "Меркурий 201.7 NEW", "brand": "Инкотекс СК", "stock": 0, "in_way": 2, "sold_30d": 8, "days_now": 0.0, "batch": 10, "days_after": 37.5, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 4, "Краснодар": 2, "Рязань": 1, "Екб": 2, "Перспективный)": 1, "Казань": 1, "СПБ Шушары": 1}, "in_plan": true}, {"nm_id": 838634870, "sku": "Интегра с кроликом для кошек диаб", "brand": "Animonda", "stock": 0, "in_way": 4, "sold_30d": 128, "days_now": 0.0, "batch": 150, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 52, "Краснодар": 27, "Рязань": 18, "Екб": 2, "Перспективный)": 18, "Казань": 15, "СПБ Шушары": 12, "Невинномысск": 8}, "in_plan": true}, {"nm_id": 838634871, "sku": "Интегра с индейкой для кошек диаб", "brand": "Animonda", "stock": 0, "in_way": 24, "sold_30d": 127, "days_now": 0.0, "batch": 149, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 52, "Краснодар": 27, "Рязань": 18, "Екб": 2, "Перспективный)": 18, "Казань": 15, "СПБ Шушары": 12, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 861413727, "sku": "TetraReptoMin 500ml Sticks", "brand": "TETRA", "stock": 0, "in_way": 10, "sold_30d": 121, "days_now": 0.0, "batch": 142, "days_after": 35.2, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 50, "Краснодар": 26, "Рязань": 17, "Екб": 2, "Перспективный)": 17, "Казань": 14, "СПБ Шушары": 11, "Невинномысск": 7}, "in_plan": true}, {"nm_id": 996324211, "sku": "интегра с лососем 100 г", "brand": "Animonda", "stock": 0, "in_way": 1, "sold_30d": 24, "days_now": 0.0, "batch": 28, "days_after": 35.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 10, "Краснодар": 5, "Рязань": 3, "Екб": 2, "Перспективный)": 3, "Казань": 3, "СПБ Шушары": 2, "Невинномысск": 2}, "in_plan": true}, {"nm_id": 1009460766, "sku": "ICO/016/018", "brand": "INsight", "stock": 0, "in_way": 0, "sold_30d": 1, "days_now": 0.0, "batch": 2, "days_after": 60.0, "status": "oos", "status_label": "OOS", "warehouses": {"Электросталь": 1, "Невинномысск": 1}, "in_plan": true}]};
-
-function badge(s, label) {
-  return `<span class="badge b-${s}">${label}</span>`;
-}
-
-function daysCell(now, after, hasBatch) {
-  if (now == null) return '—';
-  const n = `<span class="days-now">${now}д</span>`;
-  if (!hasBatch || after == null) return n;
-  return `<div class="days-compare">${n}<span class="days-arrow">→</span><span class="days-after">${after}д</span></div>`;
-}
-
-function whTags(wh) {
-  if (!wh || !Object.keys(wh).length) return '—';
-  return '<div class="wh-tags">' + Object.entries(wh).map(([k,v]) =>
-    `<span class="wh-tag">${k} ${v}</span>`).join('') + '</div>';
-}
-
-function renderKPI() {
-  const m = DATA.meta;
-  document.getElementById('snap-date').textContent = m.snap_date;
-  document.getElementById('gen-date').textContent = m.generated;
-  document.getElementById('kpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Остаток WB</div><div class="value">${m.total_stock.toLocaleString('ru')}</div><div class="hint">шт на складах</div></div>
-    <div class="kpi-card accent"><div class="label">К довозу</div><div class="value">${m.plan_batch.toLocaleString('ru')}</div><div class="hint">${m.plan_sku} SKU</div></div>
-    <div class="kpi-card"><div class="label">Запас сейчас</div><div class="value">~${m.cabinet_days_now}д</div><div class="hint">кабинет целиком</div></div>
-    <div class="kpi-card"><div class="label">После довоза</div><div class="value" style="color:var(--green)">~${m.cabinet_days_after}д</div><div class="hint">цель 35д</div></div>
-    <div class="kpi-card"><div class="label">Срочно</div><div class="value" style="color:var(--red)">${m.urgent_count}</div><div class="hint">OOS + ${m.deficit_count} дефицит</div></div>
-  `;
-  if (m.urgent_count > 0) {
-    const names = DATA.urgent.slice(0,3).map(s => s.sku).join(', ');
-    const el = document.getElementById('urgent-alert');
-    el.style.display = 'block';
-    el.innerHTML = `<strong>🔴 Срочно OOS:</strong> ${names}${DATA.urgent.length > 3 ? '…' : ''} — бронь поставки в приоритете`;
-  }
-}
-
-function renderBars(id, items, cls) {
-  const max = Math.max(...items.map(i => i.qty), 1);
-  document.getElementById(id).innerHTML = items.map(i => `
-    <div class="bar-row">
-      <div class="bar-label" title="${i.name}">${i.name}</div>
-      <div class="bar-track"><div class="bar-fill ${cls}" style="width:${i.qty/max*100}%"></div></div>
-      <div class="bar-num">${i.qty}</div>
-    </div>`).join('');
-}
-
-function renderPlanTable(filter='') {
-  const tbody = document.querySelector('#table-plan tbody');
-  const q = filter.toLowerCase();
-  tbody.innerHTML = DATA.skus_plan.filter(s =>
-    !q || s.sku.toLowerCase().includes(q) || String(s.nm_id).includes(q)
-  ).map(s => `<tr>
-    <td><strong>${s.sku}</strong><br><span style="color:var(--muted);font-size:0.75rem">${s.nm_id}</span></td>
-    <td>${badge(s.status, s.status_label)}</td>
-    <td class="num">${s.stock}</td>
-    <td class="num">${s.sold_30d}</td>
-    <td>${daysCell(s.days_now, s.days_after, s.batch > 0)}</td>
-    <td class="num"><strong>${s.batch || '—'}</strong></td>
-    <td>${s.batch ? daysCell(null, s.days_after, true) : '—'}</td>
-    <td>${whTags(s.warehouses)}</td>
-  </tr>`).join('');
-}
-
-function renderAllTable(filter='') {
-  const q = filter.toLowerCase();
-  document.querySelector('#table-all tbody').innerHTML = DATA.skus_all.filter(s =>
-    !q || s.sku.toLowerCase().includes(q)
-  ).map(s => `<tr>
-    <td>${s.sku}</td><td>${badge(s.status, s.status_label)}</td>
-    <td class="num">${s.stock}</td><td class="num">${s.sold_30d}</td>
-    <td class="num">${s.days_now != null ? s.days_now + 'д' : '—'}</td>
-  </tr>`).join('');
-}
-
-function renderStop() {
-  document.querySelector('#table-stop tbody').innerHTML = DATA.stop_list.map(s => `<tr>
-    <td>${s.sku}</td><td>${badge(s.status, s.status_label)}</td>
-    <td class="num">${s.stock}</td><td class="num">${s.sold_30d}</td>
-    <td class="num">${s.days_now != null ? s.days_now + 'д' : '—'}</td>
-  </tr>`).join('');
-}
-
-function renderWarehouses() {
-  renderBars('bars-stock', DATA.warehouses_stock.map(w => ({name: w.name.replace(' (Тюшевское)','').replace(' - Перспективная 14',''), qty: w.qty})), '');
-  renderBars('bars-ship', DATA.warehouses_plan.map(w => ({name: w.name, qty: w.qty})), 'ship');
-
-  const byWh = {};
-  DATA.skus_plan.forEach(s => {
-    Object.entries(s.warehouses).forEach(([wh, q]) => {
-      if (!byWh[wh]) byWh[wh] = [];
-      byWh[wh].push({sku: s.sku, qty: q, nm_id: s.nm_id});
-    });
-  });
-
-  document.getElementById('wh-details').innerHTML = Object.entries(byWh).map(([wh, items]) => {
-    const total = items.reduce((a,b) => a+b.qty, 0);
-    const rows = items.sort((a,b) => b.qty - a.qty).map(i =>
-      `<tr><td>${i.sku}</td><td class="num"><strong>${i.qty}</strong></td></tr>`).join('');
-    return `<div class="card wh-detail"><h3><span>📦 ${wh}</span><span>${total} шт · ${items.length} SKU</span></h3>
-      <table><thead><tr><th>Артикул</th><th class="num">Шт</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  }).join('');
-}
-
-document.querySelectorAll('.tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
-  });
-});
-
-document.getElementById('search-plan').addEventListener('input', e => renderPlanTable(e.target.value));
-document.getElementById('search-all').addEventListener('input', e => renderAllTable(e.target.value));
-
-renderKPI(); renderPlanTable(); renderAllTable(); renderStop(); renderWarehouses();
-</script>
+<script src="app.js"></script>
 </body>
 </html>
