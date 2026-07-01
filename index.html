@@ -259,32 +259,42 @@ footer{margin-top:28px;color:var(--muted);font-size:.75rem}
 
 <div class="panel" id="panel-ads">
   <div class="kpi" id="adsKpi"></div>
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <h2>Расход по дням (факт списаний)</h2><span class="chart-tag">30 дней</span>
+  <div class="grid2">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h2>Расход по дням</h2><span class="chart-tag">30 дней</span>
+      </div>
+      <div class="chart-wrap" id="chartAdDaily" style="height:180px"></div>
     </div>
-    <div class="chart-wrap" id="chartAdDaily" style="height:200px"></div>
-    <p class="note" id="adsNote"></p>
+    <div class="card" id="adsStatsChartCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h2>Показы и клики</h2><span class="chart-tag">30 дней</span>
+      </div>
+      <div class="chart-wrap" id="chartAdViews" style="height:180px"></div>
+    </div>
   </div>
+  <p class="note" id="adsNote" style="margin:0 0 12px"></p>
   <div class="grid2">
     <div class="card"><h2>Слив рекламы</h2>
       <div class="scroll"><table id="tableAdBleed"><thead><tr>
-        <th>Артикул</th><th class="num">W1</th><th class="num">Прибыль</th>
-        <th class="num">ДРР</th><th class="num">ROAS</th><th>Действие</th>
+        <th>Артикул</th><th class="num">W1</th><th class="num">Показы</th><th class="num">CTR</th>
+        <th class="num">Прибыль</th><th class="num">ДРР</th><th class="num">ROAS</th><th>Действие</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
-    <div class="card"><h2>Кампании (детально)</h2>
+    <div class="card"><h2>Кампании</h2>
       <div class="scroll"><table id="tableCampaigns"><thead><tr>
-        <th>ID / название</th><th>SKU</th><th class="num">W1</th><th class="num">7д</th>
-        <th class="num">30д</th><th>Тип</th><th>Статус</th>
+        <th>ID / название</th><th>SKU</th><th class="num">W1</th>
+        <th class="num">Показы</th><th class="num">Клики</th><th class="num">CTR</th><th class="num">CPC</th>
+        <th class="num">Заказы</th><th class="num">ДРР</th><th>Тип</th><th>Статус</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
   </div>
   <div class="card"><h2>Расход по SKU</h2>
     <input class="search" id="searchAds" placeholder="Поиск…">
     <div class="scroll"><table id="tableAds"><thead><tr>
-      <th>Артикул</th><th class="num">W1</th><th class="num">7д</th><th class="num">30д</th>
-      <th class="num">Выручка</th><th class="num">ДРР</th><th class="num">Камп.</th>
+      <th>Артикул</th><th class="num">W1</th><th class="num">Показы</th><th class="num">Клики</th>
+      <th class="num">CTR</th><th class="num">CPC</th><th class="num">Заказы</th><th class="num">CPO</th>
+      <th class="num">Выручка</th><th class="num">ДРР</th><th class="num">ROAS</th><th class="num">Камп.</th>
       <th class="num">Прибыль</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </div>

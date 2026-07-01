@@ -3,7 +3,10 @@ let state = { brand: '', q: {}, period: 'yesterday', dateFrom: '', dateTo: '', t
 
 const fmt = n => Math.round(n || 0).toLocaleString('ru-RU');
 const rub = n => (n == null || n === 0) ? '—' : Math.round(n).toLocaleString('ru-RU') + ' ₽';
+const rubDec = n => n == null ? '—' : Number(n).toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
 const pct = n => n == null ? '—' : (typeof n === 'number' && n > 1 ? n.toFixed(0) : (n * 100).toFixed(0)) + '%';
+const pct2 = n => n == null ? '—' : Number(n).toFixed(2) + '%';
+const num = n => (n == null || n === 0) ? '—' : Math.round(n).toLocaleString('ru-RU');
 
 const trend = (v, label) => {
   if (v == null) return '<span class="trend flat">—</span>';
@@ -119,6 +122,30 @@ function drawBarChart(el, rows, key, colorFn) {
     return `<text x="${pad.l + i * gap + gap / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#9ca3af">${r.date.slice(8)}</text>`;
   }).join('');
   el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${bars}${labels}</svg>`;
+}
+
+function drawDualBarChart(el, rows) {
+  if (!rows.length) { el.innerHTML = '<p class="note">Нет данных</p>'; return; }
+  const W = el.clientWidth || 400, H = 180, pad = { t: 12, r: 8, b: 28, l: 36 };
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const maxV = Math.max(...rows.map(r => r.views || 0), 1);
+  const maxC = Math.max(...rows.map(r => r.clicks || 0), 1);
+  const gap = iw / rows.length;
+  const bw = gap * 0.28;
+  const bars = rows.map((r, i) => {
+    const x0 = pad.l + i * gap + gap * 0.1;
+    const hv = ((r.views || 0) / maxV) * ih;
+    const hc = ((r.clicks || 0) / maxC) * ih;
+    return `<rect x="${x0}" y="${pad.t + ih - hv}" width="${bw}" height="${hv}" rx="2" fill="#93c5fd"/>
+      <rect x="${x0 + bw + 2}" y="${pad.t + ih - hc}" width="${bw}" height="${hc}" rx="2" fill="#2563eb"/>`;
+  }).join('');
+  const labels = rows.map((r, i) => {
+    if (i % Math.ceil(rows.length / 7) !== 0 && i !== rows.length - 1) return '';
+    return `<text x="${pad.l + i * gap + gap / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="#9ca3af">${r.date.slice(8)}</text>`;
+  }).join('');
+  const legend = `<text x="${pad.l}" y="10" font-size="10" fill="#93c5fd">■ показы</text>
+    <text x="${pad.l + 70}" y="10" font-size="10" fill="#2563eb">■ клики</text>`;
+  el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${legend}${bars}${labels}</svg>`;
 }
 
 function updateRangeLabel() {
@@ -368,10 +395,22 @@ function renderAds() {
   const e = DATA.economics || {};
   const a = DATA.ads_detail || {};
   const c = a.cabinet || e.cabinet || {};
+  const hasFs = a.has_fullstats;
+  const adSkuMap = {};
+  (a.skus || []).forEach(s => { adSkuMap[s.nm_id] = s; });
   document.getElementById('adsKpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Реклама W1</div><div class="value">${rub(c.spend_w1 || e.cabinet?.ad_w1)}</div></div>
-    <div class="kpi-card"><div class="label">7 дней</div><div class="value">${rub(c.spend_7d)}</div></div>
-    <div class="kpi-card"><div class="label">30 дней</div><div class="value">${rub(c.spend_30d)}</div></div>
+    <div class="kpi-card"><div class="label">Реклама W1</div><div class="value">${rub(c.spend_w1 || e.cabinet?.ad_w1)}</div>
+      <div class="hint">ДРР ${c.drr_w1 != null ? c.drr_w1 + '%' : '—'}</div></div>
+    <div class="kpi-card"><div class="label">Показы W1</div><div class="value">${num(c.views_w1)}</div>
+      <div class="hint">клики ${num(c.clicks_w1)}</div></div>
+    <div class="kpi-card"><div class="label">CTR W1</div><div class="value">${pct2(c.ctr_w1)}</div>
+      <div class="hint">CPC ${rubDec(c.cpc_w1)} · CPM ${rubDec(c.cpm_w1)}</div></div>
+    <div class="kpi-card"><div class="label">Заказы W1</div><div class="value">${num(c.orders_w1)}</div>
+      <div class="hint">корзины ${num(c.atbs_w1)} · CR ${pct2(c.cr_w1)}</div></div>
+    <div class="kpi-card"><div class="label">ROAS W1</div><div class="value">${c.roas_w1 != null ? c.roas_w1 + '%' : '—'}</div>
+      <div class="hint">CPO ${rubDec(c.cpo_w1)}</div></div>
+    <div class="kpi-card"><div class="label">7 / 30 дней</div><div class="value">${rub(c.spend_7d)}</div>
+      <div class="hint">30д ${rub(c.spend_30d)}</div></div>
     <div class="kpi-card"><div class="label">Кампаний</div><div class="value">${c.campaigns_total || (e.campaigns||[]).length}</div>
       <div class="hint">активных ${c.campaigns_active ?? '—'}</div></div>
     <div class="kpi-card"><div class="label">Слив</div><div class="value z-red">${(e.ad_bleed||[]).length}</div></div>`;
@@ -379,19 +418,31 @@ function renderAds() {
   if (a.daily?.length) {
     drawBarChart(document.getElementById('chartAdDaily'),
       a.daily.map(d => ({ date: d.date, drr: d.spend })), 'drr', () => '#2563eb');
+    const viewsCard = document.getElementById('adsStatsChartCard');
+    if (hasFs && a.daily.some(d => d.views)) {
+      viewsCard.style.display = '';
+      drawDualBarChart(document.getElementById('chartAdViews'), a.daily);
+    } else viewsCard.style.display = 'none';
   }
-  document.querySelector('#tableAdBleed tbody').innerHTML = (e.ad_bleed || []).map(s => `<tr>
+  document.querySelector('#tableAdBleed tbody').innerHTML = (e.ad_bleed || []).map(s => {
+    const st = adSkuMap[s.nm_id] || {};
+    return `<tr>
     <td>${s.sku || s.nm_id}</td><td class="num">${rub(s.ad_w1)}</td>
+    <td class="num">${num(st.views_w1)}</td><td class="num">${pct2(st.ctr_w1)}</td>
     <td class="num z-red">${rub(s.profit_w1)}</td><td class="num">${s.drr_w1}%</td>
     <td class="num">${s.roas_w1 ? s.roas_w1+'%' : '—'}</td>
-    <td class="z-red">${s.action}</td></tr>`).join('') || '<tr><td colspan="6">—</td></tr>';
+    <td class="z-red">${s.action}</td></tr>`;
+  }).join('') || '<tr><td colspan="8">—</td></tr>';
   const camps = a.campaigns || e.campaigns || [];
   document.querySelector('#tableCampaigns tbody').innerHTML = camps.slice(0, 40).map(c => `<tr>
     <td><span style="font-size:.72rem;color:var(--muted)">#${c.advert_id || '—'}</span><br>${(c.camp||'').slice(0,35)}</td>
     <td>${c.sku || c.nm_id || '—'}</td>
-    <td class="num">${rub(c.spend_w1)}</td><td class="num">${rub(c.spend_7d)}</td>
-    <td class="num">${rub(c.spend_30d)}</td>
-    <td>${c.type || '—'}</td><td>${c.status || '—'}</td></tr>`).join('') || '<tr><td colspan="7">—</td></tr>';
+    <td class="num">${rub(c.spend_w1)}</td>
+    <td class="num">${num(c.views_w1)}</td><td class="num">${num(c.clicks_w1)}</td>
+    <td class="num">${pct2(c.ctr_w1)}</td><td class="num">${rubDec(c.cpc_w1)}</td>
+    <td class="num">${num(c.orders_w1)}</td>
+    <td class="num">${c.drr_w1 != null ? c.drr_w1+'%' : '—'}</td>
+    <td>${c.type || '—'}</td><td>${c.status || '—'}</td></tr>`).join('') || '<tr><td colspan="11">—</td></tr>';
   const econMap = {};
   (e.skus || []).forEach(s => { econMap[s.nm_id] = s; });
   const adSkus = a.skus?.length ? a.skus : null;
@@ -404,10 +455,12 @@ function renderAds() {
       : (ec.drr_w1 > 12 || s.drr_w1 > 12) ? '<span class="z-yellow">Срез</span>' : '<span class="z-green">Ок</span>';
     return `<tr><td>${s.sku || s.nm_id}</td>
       <td class="num">${rub(s.spend_w1 ?? ec.ad_w1)}</td>
-      <td class="num">${rub(s.spend_7d)}</td>
-      <td class="num">${rub(s.spend_30d ?? s.ad_spend_30d)}</td>
+      <td class="num">${num(s.views_w1)}</td><td class="num">${num(s.clicks_w1)}</td>
+      <td class="num">${pct2(s.ctr_w1)}</td><td class="num">${rubDec(s.cpc_w1)}</td>
+      <td class="num">${num(s.orders_w1)}</td><td class="num">${rubDec(s.cpo_w1)}</td>
       <td class="num">${rub(s.revenue_w1 ?? ec.revenue_w1)}</td>
       <td class="num">${s.drr_w1 ?? ec.drr_w1 ? (s.drr_w1 ?? ec.drr_w1)+'%' : '—'}</td>
+      <td class="num">${s.roas_w1 != null ? s.roas_w1+'%' : '—'}</td>
       <td class="num">${s.campaigns_count ?? '—'}</td>
       <td class="num" style="color:${(ec.profit_w1||0)<0?'var(--red)':'inherit'}">${rub(ec.profit_w1)}</td>
       <td>${rec}</td></tr>`;
