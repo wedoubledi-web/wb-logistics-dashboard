@@ -9,26 +9,28 @@ const NM_RE = /\b(\d{7,12})\b/;
 function num(v) {
   if (v == null || v === '') return null;
   const s = String(v).replace(/\s/g, '').replace(',', '.').replace(/%/g, '');
-  const n = parseFloat(s);
+  const m = s.match(/^[\d.,]+/);
+  const n = parseFloat(m ? m[0] : s);
   return isNaN(n) ? null : n;
 }
 
 const METRIC_PATTERNS = [
-  { key: 'ctr', re: /^ctr$|ctr\s*%|кликабельность/i },
-  { key: 'views', re: /^показы$|количество показов|просмотр/i },
-  { key: 'clicks', re: /перешли в карточк|переход.*карточк|количество переходов|перешли/i },
-  { key: 'cart_cr', re: /конверс.*корзин|cr\s*1|в корзину.*%/i },
-  { key: 'order_cr', re: /конверс.*заказ|cr\s*2/i },
+  { key: 'ctr', re: /^ctr$/i },
+  { key: 'views', re: /^показы$|количество показов/i },
+  { key: 'clicks', re: /перешли в карточк|переход.*карточк|количество переходов|^перешли$/i },
+  { key: 'cart_cr', re: /конверс.*в корзин|конверс.*корзин|cr\s*1/i },
+  { key: 'order_cr', re: /конверс.*в заказ|конверс.*заказ|cr\s*2/i },
   { key: 'buyout', re: /процент выкупа|доля выкупа|выкуп\s*%/i },
-  { key: 'price', re: /медианн.*цен|цен.*скидк|минимальн.*цен|максимальн.*цен|средн.*цен/i },
+  { key: 'price', re: /медианн.*цен|цен.*скидк|минимальн.*цен|максимальн.*цен|средн.*цен|цена покуп/i },
   { key: 'orders', re: /заказали|заказов|количество заказ|товаров заказ/i },
   { key: 'rating', re: /рейтинг/i },
-  { key: 'reviews', re: /количество отзыв|отзывов/i },
+  { key: 'reviews', re: /количество отзыв|отзывов|^отзывы$/i },
   { key: 'position', re: /позиц.*поиск|средн.*позиц/i },
 ];
 
-const SKIP_LABEL = /^(артикул|предмет|дата|сервис|назван|бренд|категор|номенклатур|период|сравнен|товар$|наимен)/i;
-const HEADER_LABEL = /^(показател|параметр|метрик|показатель|название)/i;
+const SKIP_LABEL = /^(артикул|предмет|дата|сервис|назван|бренд|категор|номенклатур|период|сравнен|наимен)/i;
+const SKIP_COL = /изменен|динамик|к прошл|разница|тренд|^\s*Δ|delta/i;
+const HEADER_LABEL = /^(показател|параметр|метрик|показатель|название|предмет)/i;
 
 function normalizeRows(rows) {
   return rows
@@ -38,121 +40,183 @@ function normalizeRows(rows) {
 
 function matchMetric(label) {
   const t = String(label || '').trim();
-  if (!t || SKIP_LABEL.test(t)) return null;
+  if (!t || SKIP_LABEL.test(t) || SKIP_COL.test(t)) return null;
   for (const m of METRIC_PATTERNS) if (m.re.test(t)) return m.key;
   return null;
 }
 
+function extractNm(v) {
+  if (v == null || v === '') return null;
+  const s = String(v).trim().replace(/\.0+$/, '');
+  const m = NM_RE.exec(s);
+  if (m) return m[1];
+  return /^\d{7,12}$/.test(s) ? s : null;
+}
+
 function cardId(header, articleIds, idx) {
   if (articleIds?.[idx]) return articleIds[idx];
-  const m = NM_RE.exec(String(header));
-  if (m) return m[1];
+  const nm = extractNm(header);
+  if (nm) return nm;
   const h = String(header || '').trim();
   return h ? h.slice(0, 60) : `col_${idx + 1}`;
 }
 
 function findHeaderRow(rows) {
   let best = { idx: 0, score: 0 };
-  for (let i = 0; i < Math.min(rows.length, 40); i++) {
+  for (let i = 0; i < Math.min(rows.length, 50); i++) {
     const row = rows[i].map(c => String(c ?? '').trim());
     const first = row[0];
-    if (/^артикул/i.test(first)) continue;
+    if (/^артикул\s*wb$/i.test(first)) continue;
     let score = 0;
-    if (HEADER_LABEL.test(first)) score += 50;
-    const nmInRow = row.slice(1).filter(c => NM_RE.test(c)).length;
-    const metricHeaders = row.slice(1).filter(c => matchMetric(c)).length;
-    const metricInCol = rows.slice(i + 1, i + 25).filter(r => matchMetric(r[0])).length;
-    score += nmInRow + metricHeaders * 2 + metricInCol;
+    if (HEADER_LABEL.test(first)) score += 40;
+    const metricHeaders = row.filter(c => matchMetric(c)).length;
+    const nmInRow = row.filter(c => extractNm(c)).length;
+    const metricInCol = rows.slice(i + 1, i + 30).filter(r => matchMetric(r[0])).length;
+    const hasNmHeader = row.some(c => /артикул/i.test(c));
+    score += metricHeaders * 4 + metricInCol + nmInRow;
+    if (hasNmHeader) score += 15;
     if (score > best.score) best = { idx: i, score };
   }
   return best.idx;
 }
 
-function findArticleIds(rows, headerIdx) {
-  for (let i = headerIdx; i < Math.min(headerIdx + 20, rows.length); i++) {
-    const label = String(rows[i][0] ?? '').toLowerCase();
+function findArticleIds(rows, headerIdx, colStart, colCount) {
+  for (let i = headerIdx; i < Math.min(headerIdx + 25, rows.length); i++) {
+    const label = String(rows[i][colStart - 1] ?? rows[i][0] ?? '').toLowerCase();
     if (!/артикул|nm\s*id|nmid/i.test(label)) continue;
-    return rows[i].slice(1).map(v => {
-      const m = NM_RE.exec(String(v));
-      return m ? m[1] : null;
-    });
+    return rows[i].slice(colStart, colStart + colCount).map(v => extractNm(v));
   }
   return null;
+}
+
+/** WB export: each row = card, columns = metrics (most common in 2025+ Jam) */
+function parseLayoutCardsAsRows(rows) {
+  const hi = findHeaderRow(rows);
+  const headers = rows[hi].map(c => String(c ?? '').trim());
+  let nmCol = -1;
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i].toLowerCase();
+    if (/артикул\s*wb|артикул\s*wild|nm\s*id/i.test(h)) { nmCol = i; break; }
+  }
+  if (nmCol < 0) {
+    for (let i = 0; i < headers.length; i++) {
+      const h = headers[i].toLowerCase();
+      if (/^артикул$/i.test(h) || (/артикул/i.test(h) && !/продав|поставщик/i.test(h))) {
+        nmCol = i; break;
+      }
+    }
+  }
+  if (nmCol < 0) {
+    for (let i = 0; i < headers.length; i++) {
+      let cnt = 0;
+      for (let r = hi + 1; r < Math.min(hi + 12, rows.length); r++) {
+        if (extractNm(rows[r][i])) cnt++;
+      }
+      if (cnt >= 2) { nmCol = i; break; }
+    }
+  }
+  if (nmCol < 0) return null;
+
+  const metricCols = [];
+  headers.forEach((h, i) => {
+    if (i === nmCol || SKIP_COL.test(h)) return;
+    const mk = matchMetric(h);
+    if (mk) metricCols.push({ i, mk });
+  });
+  if (metricCols.length < 2) return null;
+
+  const nameCol = headers.findIndex(h => /наимен|название тов|товар$/i.test(h));
+  const cards = [];
+  for (let r = hi + 1; r < rows.length; r++) {
+    const row = rows[r];
+    const nm = extractNm(row[nmCol]);
+    if (!nm) continue;
+    const metrics = {};
+    metricCols.forEach(({ i, mk }) => {
+      const n = num(row[i]);
+      if (n != null) metrics[mk] = n;
+    });
+    if (!Object.values(metrics).some(v => v != null)) continue;
+    const header = nameCol >= 0 ? String(row[nameCol] || nm).trim() : nm;
+    cards.push({ id: nm, header: header || nm, metrics });
+  }
+  return cards.length ? cards : null;
+}
+
+/** Metrics in rows, cards in columns (older / custom templates) */
+function parseLayoutMetricsInCols(rows) {
+  const hi = findHeaderRow(rows);
+  const headers = rows[hi].map(c => String(c ?? '').trim());
+  const colStart = HEADER_LABEL.test(headers[0]) || !headers[0] ? 1 : 0;
+  const colHeaders = headers.slice(colStart).filter(h => h && !SKIP_COL.test(h));
+  const body = rows.slice(hi + 1);
+  const articleIds = findArticleIds(rows, hi, colStart, colHeaders.length);
+
+  const metricRows = body.filter(r => matchMetric(r[colStart - 1] ?? r[0])).length;
+  if (metricRows < 3) return null;
+
+  const cards = colHeaders.map((h, i) => ({
+    id: cardId(h, articleIds, i),
+    header: h || articleIds?.[i] || `Карточка ${i + 1}`,
+    metrics: {},
+  }));
+  body.forEach(row => {
+    const label = row[colStart - 1] ?? row[0];
+    const mk = matchMetric(label);
+    if (!mk) return;
+    row.slice(colStart).forEach((v, i) => {
+      if (i >= cards.length) return;
+      const n = num(v);
+      if (n != null) cards[i].metrics[mk] = n;
+    });
+  });
+  const out = cards.filter(c => Object.values(c.metrics).some(v => v != null));
+  return out.length ? out : null;
 }
 
 function parseSheet(rawRows) {
   const rows = normalizeRows(rawRows);
   if (!rows.length) return null;
-
-  const hi = findHeaderRow(rows);
-  const headers = rows[hi].map(c => String(c ?? '').trim());
-  const colStart = HEADER_LABEL.test(headers[0]) || !headers[0] ? 1 : 0;
-  const colHeaders = headers.slice(colStart);
-  const body = rows.slice(hi + 1);
-  const articleIds = findArticleIds(rows, hi);
-
-  // Layout A: metrics in first column, cards in columns
-  const metricRows = body.filter(r => matchMetric(r[colStart - 1] ?? r[0])).length;
-  if (metricRows >= 3) {
-    const cards = colHeaders.map((h, i) => ({
-      id: cardId(h, articleIds, i),
-      header: h || articleIds?.[i] || `Карточка ${i + 1}`,
-      metrics: {},
-    }));
-    body.forEach(row => {
-      const label = row[colStart - 1] ?? row[0];
-      const mk = matchMetric(label);
-      if (!mk) return;
-      row.slice(colStart).forEach((v, i) => {
-        const n = num(v);
-        if (cards[i] && n != null) cards[i].metrics[mk] = n;
-      });
-    });
-    const out = cards.filter(c => Object.values(c.metrics).some(v => v != null));
-    if (out.length) return out;
-  }
-
-  // Layout B: cards in rows, metrics in header
-  const cards = [];
-  body.forEach(row => {
-    const labelCol = row[colStart - 1] ?? row[0];
-    const nmFromRow = NM_RE.exec(String(labelCol));
-    const id = nmFromRow ? nmFromRow[1] : cardId(labelCol, null, 0);
-    if (!id || SKIP_LABEL.test(String(labelCol))) return;
-    const metrics = {};
-    colHeaders.forEach((h, i) => {
-      const mk = matchMetric(h);
-      const n = num(row[colStart + i]);
-      if (mk && n != null) metrics[mk] = n;
-    });
-    if (Object.values(metrics).some(v => v != null)) {
-      cards.push({ id, header: String(labelCol).trim(), metrics });
-    }
-  });
-  return cards.length ? cards : null;
+  return parseLayoutCardsAsRows(rows)
+    || parseLayoutMetricsInCols(rows)
+    || null;
 }
 
-function sheetScore(name) {
+function sheetScore(name, cards) {
+  let s = 0;
   const n = name.toLowerCase();
-  if (/показател/i.test(n)) return 100;
-  if (/comparison|сравнен/i.test(n)) return 80;
-  if (/поисков|запрос/i.test(n)) return 30;
-  if (/склад|регион/i.test(n)) return 10;
-  return 50;
+  if (/показател/i.test(n)) s += 100;
+  else if (/comparison|сравнен|cards/i.test(n)) s += 80;
+  else if (/поисков|запрос/i.test(n)) s += 20;
+  else if (/склад|регион|динамик/i.test(n)) s += 5;
+  else s += 40;
+  s += cards.length * 8 + cards.reduce((a, c) => a + Object.keys(c.metrics).length, 0);
+  return s;
 }
 
 function parseWorkbook(wb) {
   let best = null;
   for (const name of wb.SheetNames) {
     const sheet = wb.Sheets[name];
+    if (!sheet || !sheet['!ref']) continue;
     const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
     const cards = parseSheet(raw);
     if (!cards?.length) continue;
-    const score = sheetScore(name) + cards.length * 5
-      + cards.reduce((a, c) => a + Object.keys(c.metrics).length, 0);
+    const score = sheetScore(name, cards);
     if (!best || score > best.score) best = { name, cards, score };
   }
   return best;
+}
+
+function debugPreview(wb) {
+  const parts = [];
+  for (const name of wb.SheetNames.slice(0, 5)) {
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: '' });
+    const rows = normalizeRows(raw).slice(0, 4);
+    const preview = rows.map(r => r.slice(0, 5).map(c => String(c).slice(0, 20)).join(' | ')).join(' /// ');
+    parts.push(`«${name}»: ${preview || '(пусто)'}`);
+  }
+  return parts.join('\n');
 }
 
 function readFile(file) {
@@ -164,7 +228,7 @@ function readFile(file) {
         const wb = XLSX.read(data, { type: 'array', cellDates: true });
         const hit = parseWorkbook(wb);
         if (hit) resolve({ cards: hit.cards, sheet: hit.name, sheets: wb.SheetNames });
-        else resolve({ cards: null, sheets: wb.SheetNames });
+        else resolve({ cards: null, sheets: wb.SheetNames, preview: debugPreview(wb) });
       } catch (err) { reject(err); }
     };
     reader.onerror = reject;
@@ -312,11 +376,14 @@ async function onFile(file) {
   try {
     const result = await readFile(file);
     if (!result?.cards?.length) {
-      const hint = result?.sheets?.length
-        ? `Листы в файле: ${result.sheets.join(', ')}. `
+      const sheets = result?.sheets?.length ? `Листы: ${result.sheets.join(', ')}.` : '';
+      const preview = result?.preview
+        ? `<pre style="font-size:.7rem;white-space:pre-wrap;margin-top:8px;max-height:120px;overflow:auto">${result.preview}</pre>`
         : '';
       document.getElementById('fileInfo').innerHTML =
-        `${hint}Не распознан формат. Нужен Excel из Jam → «Сравнение карточек» → вкладка «Показатели» → скачать XLSX.`;
+        `${sheets} Не распознан формат.<br>`
+        + `Нужен XLSX из ЛК WB → Аналитика → <b>Сравнение карточек</b> → вкладка <b>Показатели</b> → скачать Excel.`
+        + preview;
       return;
     }
     parsed = result.cards;
