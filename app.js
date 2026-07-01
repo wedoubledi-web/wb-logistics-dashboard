@@ -41,6 +41,190 @@ function filterBrand(list) {
   if (!state.brand) return list;
   return list.filter(s => s.brand === state.brand);
 }
+function setGuide(id, title, steps, sub) {
+  const el = document.getElementById('guide-' + id);
+  if (!el) return;
+  el.innerHTML = `<h3>${title}</h3><ol>${steps.map(s => `<li>${s}</li>`).join('')}</ol>${sub ? `<div class="sub">${sub}</div>` : ''}`;
+}
+
+function focusHtml(items) {
+  if (!items.length) return '<p class="note">Нет пунктов</p>';
+  return items.map(f => `<div class="focus-item"><div class="focus-dot ${f.level}"></div>
+    <div><strong>${f.title}</strong> · ${f.sku}<br><span style="color:var(--muted)">${f.action}</span></div></div>`).join('');
+}
+
+function periodBounds() {
+  const ps = getPeriodStats();
+  if (!ps) return null;
+  return {
+    from: ps.from || state.dateFrom,
+    to: ps.to || state.dateTo,
+    label: ps.label || `${state.dateFrom} — ${state.dateTo}`,
+  };
+}
+
+function prevPeriodRange(from, to) {
+  const df = new Date(from + 'T12:00:00');
+  const dt = new Date(to + 'T12:00:00');
+  const len = Math.round((dt - df) / 86400000) + 1;
+  const prevTo = new Date(df);
+  prevTo.setDate(prevTo.getDate() - 1);
+  const prevFrom = new Date(prevTo);
+  prevFrom.setDate(prevFrom.getDate() - (len - 1));
+  return [prevFrom.toISOString().slice(0, 10), prevTo.toISOString().slice(0, 10)];
+}
+
+function getPeriodCompare() {
+  const ps = getPeriodStats();
+  const bounds = periodBounds();
+  if (!ps || !bounds) return null;
+  if (state.period !== 'custom' && DATA.daily?.presets?.[state.period]) {
+    const p = DATA.daily.presets[state.period];
+    return { cur: ps, prev: p.compare, label: p.compare_label || 'прошлый период',
+      chg_rev: p.chg_revenue_pct, chg_ord: p.chg_orders_pct };
+  }
+  const [pFrom, pTo] = prevPeriodRange(bounds.from, bounds.to);
+  const prevRows = (DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo);
+  const prev = sumDaily(prevRows);
+  const chg = v => prev && v ? Math.round((ps[v] - prev[v]) / prev[v] * 1000) / 10 : null;
+  return { cur: ps, prev, label: `${pFrom} — ${pTo}`, chg_rev: chg('revenue'), chg_ord: chg('orders') };
+}
+
+function sumSkuPeriod(nmId, from, to) {
+  const row = DATA.sku_series?.skus?.[String(nmId)];
+  if (!row?.days) return { orders: 0, revenue: 0, sales: 0, ad: 0, drr: 0, buyout: 0 };
+  let orders = 0, revenue = 0, sales = 0, ad = 0;
+  for (const [d, v] of Object.entries(row.days)) {
+    if (d >= from && d <= to) {
+      orders += v.o || 0;
+      revenue += v.r || 0;
+      sales += v.s || 0;
+      ad += v.ad || 0;
+    }
+  }
+  return {
+    orders, revenue, sales, ad,
+    drr: revenue ? Math.round(ad / revenue * 1000) / 10 : 0,
+    buyout: orders ? Math.round(sales / orders * 1000) / 10 : 0,
+  };
+}
+
+function yardZoneFor(s) {
+  if (s.orders === 0 && s.orders_prev >= 3) return 'red';
+  if (s.drr > 20 || (s.ad > 500 && s.orders === 0)) return 'red';
+  if (s.orders_chg_pct != null && s.orders_chg_pct < -15) return 'yellow';
+  if (s.drr > 12) return 'yellow';
+  if (s.buyout && s.buyout < 70 && s.orders >= 5) return 'yellow';
+  return 'green';
+}
+
+function buildAllSkuPeriod() {
+  const bounds = periodBounds();
+  if (!bounds || !DATA.sku_series?.available) return [];
+  const [pFrom, pTo] = prevPeriodRange(bounds.from, bounds.to);
+  const rnpMap = {};
+  (DATA.rnp?.skus || []).forEach(s => { rnpMap[s.nm_id] = s; });
+  const econMap = {};
+  (DATA.economics?.skus || []).forEach(s => { econMap[s.nm_id] = s; });
+  const stockMap = {};
+  (DATA.skus_all || []).forEach(s => { stockMap[s.nm_id] = s; });
+
+  return Object.values(DATA.sku_series.skus).map(row => {
+    const cur = sumSkuPeriod(row.nm_id, bounds.from, bounds.to);
+    const prev = sumSkuPeriod(row.nm_id, pFrom, pTo);
+    const ordersChg = prev.orders > 0
+      ? Math.round((cur.orders - prev.orders) / prev.orders * 100)
+      : (cur.orders > 0 ? 100 : null);
+    const salesChg = prev.sales > 0
+      ? Math.round((cur.sales - prev.sales) / prev.sales * 100)
+      : (cur.sales > 0 ? 100 : null);
+    const st = stockMap[row.nm_id] || {};
+    const ec = econMap[row.nm_id] || {};
+    const s = {
+      nm_id: row.nm_id,
+      sku: row.sku || row.nm_id,
+      brand: row.brand,
+      orders: cur.orders,
+      orders_prev: prev.orders,
+      orders_chg_pct: ordersChg,
+      revenue: cur.revenue,
+      sales: cur.sales,
+      sales_prev: prev.sales,
+      sales_chg_pct: salesChg,
+      buyout_pct: cur.buyout,
+      drr: cur.drr,
+      ad: cur.ad,
+      stock: st.stock,
+      days_now: st.days_now,
+      is_minus: ec.is_minus,
+      profit_w1: ec.profit_w1,
+    };
+    s.yard_zone = yardZoneFor({ ...s, orders_prev: prev.orders });
+    s.grow_action = ordersChg >= 15 ? 'Масштабировать — спрос растёт' : '';
+    s.decline_action = ordersChg <= -15 ? 'Разбор карточки / цена / отзывы' : '';
+    return s;
+  }).filter(s => s.orders > 0 || s.orders_prev >= 2 || s.ad > 100);
+}
+
+function renderGuides() {
+  const b = periodBounds();
+  const pl = b ? `<b>${b.label}</b>` : 'выбранный период';
+  const w1 = DATA.rnp?.week_current || '—';
+  setGuide('today', 'С чего начать', [
+    'Светофор — есть ли пожар по кабинету',
+    `KPI за ${pl} — выручка, заказы, ДРР`,
+    'Быстрые задачи ниже → полный список на вкладке <b>Фокус</b>',
+  ], 'Период сверху влияет на все вкладки');
+  setGuide('focus', 'Куда смотреть в первую очередь', [
+    '🔴 Срочно — стоп рекламы, дефицит, просадка кабинета',
+    '🟡 Внимание — просели заказы, низкий выкуп',
+    '🟢 Масштабировать — растущие SKU',
+  ], `За период ${pl}`);
+  setGuide('rnp', 'Динамика кабинета', [
+    'Сравни текущий и прошлый период — выручка и заказы',
+    'Таблица «Растут» — кандидаты на усиление',
+    'Полная таблица SKU — зоны и ДРР по артикулам',
+  ], `Период: ${pl}`);
+  setGuide('str', 'STR — кто просел по спросу', [
+    'Слева: заказы упали ≥15% vs прошлый период',
+    'Справа: кто растёт — можно дожать рекламой',
+    'Выкупы смотри отдельно (лаг 7–14 дн)',
+  ], `Период: ${pl}`);
+  setGuide('minus', 'Экономика SKU', [
+    'Сначала «В минусе» — стоп/срез по action',
+    '«Залежи» — реклама при нуле продаж',
+    'P&L считается за неделю W1 (' + w1 + '), не зависит от фильтра дат',
+  ], 'Нужна себестоимость в xlsx для точной прибыли');
+  setGuide('ads', 'Реклама', [
+    '1. Слив — минус + реклама → стоп РК',
+    '2. ДРР >15% или CPO высокий → срез ставок',
+    '3. Кампании без SKU — привязать артикул',
+  ], `KPI W1 + графики 30д · fullstats API`);
+  setGuide('stock', 'Остатки и запас', [
+    '1. Красная таблица — срочно, мало дней запаса',
+    '2. «Куда везти» — топ складов по отгрузке',
+    '3. Полная таблица — оборачиваемость и ИЛ',
+  ], `Цель запаса ${DATA.meta?.target_days || 35} дн`);
+  setGuide('plan', 'План отгрузки', [
+    'Статус SKU — дефицит / ок / избыток',
+    'Колонка «Отгр.» — сколько везти в ближайшую партию',
+    '«Куда» — склады по регламенту S-002',
+  ], `Партия: ${fmt(DATA.meta?.plan_batch)} шт · ${DATA.meta?.plan_sku} SKU`);
+  setGuide('funnel', 'Воронка и выкуп', [
+    'Низкий выкуп — цена, отзывы, контент карточки',
+    'Таблица — заказы → выкупы за период ' + pl,
+  ], 'Выкуп = выкупы / заказы за тот же период');
+  setGuide('warehouses', 'Склады', [
+    'Остатки — где лежит товар сейчас',
+    'План отгрузки — куда везти следующую партию',
+    'География — откуда заказы (30д)',
+  ], '');
+  setGuide('stop', 'Стоп-лист', [
+    'SKU в минусе, избытке или заморозке',
+    'Не довозить и не лить рекламу без решения',
+  ], '');
+}
+
 function qfilter(list, key, fields = ['sku']) {
   const q = state.q[key] || '';
   let out = list;
@@ -281,81 +465,73 @@ function renderToday() {
   drawLineChart(document.getElementById('chartRevenue'), revRows, ['revenue', 'sales'], ['#2563eb', '#94a3b8']);
   drawBarChart(document.getElementById('chartDrr'), drrRows, 'drr', r => r.drr > 15 ? '#dc2626' : '#2563eb');
 
-  const focus = buildFocusForPeriod().slice(0, 5);
+  const allFocus = buildFocusForPeriod();
+  const focus = allFocus.filter(f => f.level === 'critical').slice(0, 5);
+  const more = allFocus.length - focus.length;
   document.getElementById('todayFocus').innerHTML = focus.length ? focus.map(f => `
     <div class="focus-item"><div class="focus-dot ${f.level}"></div>
       <div><strong>${f.title}</strong> · ${f.sku}<br><span style="color:var(--muted)">${f.action}</span></div></div>`).join('')
-    : '<p class="note">Нет срочных задач</p>';
+    + (more > 0 ? `<p class="note" style="margin-top:10px">Ещё ${more} задач → вкладка <b>Фокус</b></p>` : '')
+    : '<p class="note">Нет срочных задач · смотри вкладку <b>Фокус</b></p>';
   updateRangeLabel();
 }
 
 function renderRnp() {
-  const rnp = DATA.rnp || {};
-  const c = rnp.cabinet || {};
-  document.getElementById('weekCompare').innerHTML = rnp.available ? `
-    <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">W1: ${rnp.week_current}</p>
-    <div class="compare">
-      <div class="box"><div style="font-size:.72rem;color:var(--muted)">Прошлая</div>
-        <div style="font-size:1.2rem;font-weight:700">${rub(c.revenue_w0)}</div>
-        <div style="font-size:.78rem">${fmt(c.orders_w0)} заказов</div></div>
-      <div style="color:var(--muted)">→</div>
-      <div class="box"><div style="font-size:.72rem;color:var(--muted)">Текущая</div>
-        <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">${rub(c.revenue_w1)}</div>
-        <div style="font-size:.78rem">${fmt(c.orders_w1)} ${delta(c.orders_chg_pct)}</div></div>
-    </div>` : '<p class="note">Нет wb_brief.db</p>';
+  const bounds = periodBounds();
+  const cmp = getPeriodCompare();
+  const labelEl = document.getElementById('rnpPeriodLabel');
+  if (labelEl) labelEl.textContent = bounds ? `· ${bounds.label}` : '';
 
-  document.querySelector('#tableGrow tbody').innerHTML = filterBrand(rnp.growing || []).map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num">${s.orders_w1}</td>
-    <td class="num z-green">+${s.orders_chg_pct}%</td><td class="num">${rub(s.revenue_w1)}</td></tr>`).join('') || '<tr><td colspan="4">—</td></tr>';
+  const rnpKpi = document.getElementById('rnpKpi');
+  if (rnpKpi && cmp) {
+    rnpKpi.innerHTML = `
+      <div class="kpi-card"><div class="label">Выручка</div>
+        <div class="value">${rub(cmp.cur.revenue)}</div>
+        <div class="hint">${delta(cmp.chg_rev)} vs ${cmp.label}</div></div>
+      <div class="kpi-card"><div class="label">Заказы</div>
+        <div class="value">${fmt(cmp.cur.orders)}</div>
+        <div class="hint">${delta(cmp.chg_ord)}</div></div>
+      <div class="kpi-card"><div class="label">ДРР</div>
+        <div class="value">${cmp.cur.drr}%</div></div>
+      <div class="kpi-card"><div class="label">Выкуп</div>
+        <div class="value">${cmp.cur.buyout_pct != null ? cmp.cur.buyout_pct + '%' : '—'}</div></div>`;
+  } else if (rnpKpi) rnpKpi.innerHTML = '';
 
-  const list = qfilter(filterBrand(rnp.skus || []), 'rnp').sort((a, b) => (b.orders_w1 || 0) - (a.orders_w1 || 0));
+  const wc = document.getElementById('weekCompare');
+  if (wc) {
+    if (cmp && bounds) {
+      wc.innerHTML = `
+        <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Сейчас: <b>${bounds.label}</b><br>Было: ${cmp.label}</p>
+        <div class="compare">
+          <div class="box"><div style="font-size:.72rem;color:var(--muted)">Прошлый период</div>
+            <div style="font-size:1.2rem;font-weight:700">${rub(cmp.prev.revenue)}</div>
+            <div style="font-size:.78rem">${fmt(cmp.prev.orders)} заказов</div></div>
+          <div style="color:var(--muted)">→</div>
+          <div class="box"><div style="font-size:.72rem;color:var(--muted)">Текущий</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--accent)">${rub(cmp.cur.revenue)}</div>
+            <div style="font-size:.78rem">${fmt(cmp.cur.orders)} ${delta(cmp.chg_ord)}</div></div>
+        </div>`;
+    } else wc.innerHTML = '<p class="note">Нет данных за период</p>';
+  }
+
+  const allSku = buildAllSkuPeriod();
+  const growing = allSku.filter(s => s.orders_chg_pct >= 15 && s.orders >= 3)
+    .sort((a, b) => b.orders_chg_pct - a.orders_chg_pct);
+  document.querySelector('#tableGrow tbody').innerHTML = filterBrand(growing).slice(0, 15).map(s => `<tr>
+    <td>${s.sku || s.nm_id}</td><td class="num">${s.orders}</td>
+    <td class="num z-green">+${s.orders_chg_pct}%</td><td class="num">${rub(s.revenue)}</td>
+    <td style="font-size:.78rem">${s.grow_action || 'Усилить рекламу / запас'}</td></tr>`).join('')
+    || '<tr><td colspan="5">Нет растущих за период</td></tr>';
+
+  const list = qfilter(filterBrand(allSku), 'rnp').sort((a, b) => b.orders - a.orders);
   document.querySelector('#tableRnp tbody').innerHTML = list.slice(0, 80).map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num">${s.orders_w1}</td>
+    <td>${s.sku || s.nm_id}</td><td class="num">${s.orders}</td>
     <td class="num">${s.orders_chg_pct != null ? (s.orders_chg_pct > 0 ? '+' : '') + s.orders_chg_pct + '%' : '—'}</td>
+    <td class="num">${s.sales}</td>
     <td class="num">${s.sales_chg_pct != null ? '<span class="' + (s.sales_chg_pct < 0 ? 'z-red' : 'z-green') + '">' + (s.sales_chg_pct > 0 ? '+' : '') + s.sales_chg_pct + '%</span>' : '—'}</td>
     <td class="num">${s.buyout_pct ? s.buyout_pct + '%' : '—'}</td>
-    <td class="num">${s.drr_w1 ? s.drr_w1 + '%' : '—'}</td>
+    <td class="num">${s.drr ? s.drr + '%' : '—'}</td>
     <td>${zoneBadge(s.yard_zone)}</td></tr>`).join('');
-}
-
-function periodBounds() {
-  const ps = getPeriodStats();
-  if (!ps) return null;
-  return {
-    from: ps.from || state.dateFrom,
-    to: ps.to || state.dateTo,
-    label: ps.label || `${state.dateFrom} — ${state.dateTo}`,
-  };
-}
-
-function prevPeriodRange(from, to) {
-  const df = new Date(from + 'T12:00:00');
-  const dt = new Date(to + 'T12:00:00');
-  const len = Math.round((dt - df) / 86400000) + 1;
-  const prevTo = new Date(df);
-  prevTo.setDate(prevTo.getDate() - 1);
-  const prevFrom = new Date(prevTo);
-  prevFrom.setDate(prevFrom.getDate() - (len - 1));
-  return [prevFrom.toISOString().slice(0, 10), prevTo.toISOString().slice(0, 10)];
-}
-
-function sumSkuPeriod(nmId, from, to) {
-  const row = DATA.sku_series?.skus?.[String(nmId)];
-  if (!row?.days) return { orders: 0, revenue: 0, sales: 0, ad: 0, drr: 0 };
-  let orders = 0, revenue = 0, sales = 0, ad = 0;
-  for (const [d, v] of Object.entries(row.days)) {
-    if (d >= from && d <= to) {
-      orders += v.o || 0;
-      revenue += v.r || 0;
-      sales += v.s || 0;
-      ad += v.ad || 0;
-    }
-  }
-  return {
-    orders, revenue, sales, ad,
-    drr: revenue ? Math.round(ad / revenue * 1000) / 10 : 0,
-    buyout: orders ? Math.round(sales / orders * 1000) / 10 : 0,
-  };
 }
 
 function buildFocusForPeriod() {
@@ -502,10 +678,9 @@ function renderFocus() {
   if (labelEl) labelEl.textContent = bounds ? `· ${bounds.label}` : '';
 
   const focus = buildFocusForPeriod();
-  document.getElementById('focusList').innerHTML = focus.length ? focus.map(f => `
-    <div class="focus-item"><div class="focus-dot ${f.level}"></div>
-      <div><strong>${f.title}</strong> · ${f.sku}<br><span style="color:var(--muted)">${f.action}</span></div></div>`).join('')
-    : '<p class="note">Нет задач на выбранный период</p>';
+  document.getElementById('focusCritical').innerHTML = focusHtml(focus.filter(f => f.level === 'critical'));
+  document.getElementById('focusWarning').innerHTML = focusHtml(focus.filter(f => f.level === 'warning'));
+  document.getElementById('focusGrowth').innerHTML = focusHtml(focus.filter(f => f.level === 'info'));
 
   const insNote = bounds
     ? `<p class="note" style="margin-bottom:8px">Инсайты daily-brief · фикс. окно W1 (${rnp.week_current || '—'})</p>`
@@ -567,6 +742,7 @@ function buildStrScored() {
       sales_cur: cur.sales,
       sales_prev: prev.sales,
       sales_chg_pct: salesChg,
+      revenue_cur: cur.revenue,
       buyout: cur.buyout,
       action: strAction(cur, prev, ordersChg, salesChg),
     });
@@ -608,20 +784,47 @@ function renderStr() {
     <td class="num">${s.buyout ? s.buyout + '%' : '—'}</td>
     <td style="font-size:.78rem">${s.action}</td></tr>`).join('')
     || '<tr><td colspan="9">Нет просевших за выбранный период</td></tr>';
+
+  const growList = filterBrand(growing).slice(0, 20);
+  document.querySelector('#tableStrGrow tbody').innerHTML = growList.map(s => `<tr>
+    <td>${s.sku || s.nm_id}</td>
+    <td class="num">${fmt(s.orders_cur)}</td><td class="num">${fmt(s.orders_prev)}</td>
+    <td class="num z-green">+${s.orders_chg_pct}%</td>
+    <td class="num">${rub(s.revenue_cur || 0)}</td>
+    <td style="font-size:.78rem">Усилить рекламу / запас</td></tr>`).join('')
+    || '<tr><td colspan="6">Нет растущих за период</td></tr>';
 }
 
 function renderFunnel() {
-  const c = DATA.rnp?.cabinet || {};
+  const bounds = periodBounds();
+  const cmp = getPeriodCompare();
+  const allSku = buildAllSkuPeriod();
+  const lowBuyout = allSku.filter(s => s.buyout_pct && s.buyout_pct < 70 && s.orders >= 5)
+    .sort((a, b) => a.buyout_pct - b.buyout_pct);
+
   document.getElementById('funnelKpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Выкуп 30д</div><div class="value">${c.buyout_30d_pct || c.buyout_w1_pct || '—'}%</div></div>
-    <div class="kpi-card"><div class="label">Заказы 30д</div><div class="value">${fmt(DATA.meta.total_sold_30d)}</div></div>`;
-  document.querySelector('#tableBuyout tbody').innerHTML = (DATA.rnp?.low_buyout || []).map(s => `<tr>
+    <div class="kpi-card"><div class="label">Выкуп за период</div>
+      <div class="value">${cmp?.cur?.buyout_pct != null ? cmp.cur.buyout_pct + '%' : '—'}</div>
+      <div class="hint">${bounds?.label || ''}</div></div>
+    <div class="kpi-card"><div class="label">Заказы</div>
+      <div class="value">${fmt(cmp?.cur?.orders)}</div></div>
+    <div class="kpi-card"><div class="label">Низкий выкуп SKU</div>
+      <div class="value z-red">${lowBuyout.length}</div>
+      <div class="hint">&lt;70% при ≥5 заказах</div></div>`;
+
+  document.querySelector('#tableBuyout tbody').innerHTML = filterBrand(lowBuyout).slice(0, 30).map(s => `<tr>
     <td>${s.sku || s.nm_id}</td><td class="num z-red">${s.buyout_pct}%</td>
-    <td class="num">${s.orders_30d}</td><td class="num">${s.refunds_30d}</td></tr>`).join('') || '<tr><td colspan="4">—</td></tr>';
-  const list = qfilter(filterBrand((DATA.rnp?.skus || []).filter(s => s.orders_30d > 0)), 'funnel').sort((a, b) => b.orders_30d - a.orders_30d);
-  document.querySelector('#tableFunnel tbody').innerHTML = list.slice(0, 60).map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num">${s.orders_30d}</td><td class="num">${s.sales_30d}</td>
-    <td class="num">${s.buyout_pct}%</td><td class="num">${s.refunds_30d}</td><td class="num">${rub(s.avg_check)}</td></tr>`).join('');
+    <td class="num">${s.orders}</td><td class="num">${Math.max(0, s.orders - s.sales)}</td></tr>`).join('')
+    || '<tr><td colspan="4">Нет проблемных за период</td></tr>';
+
+  const list = qfilter(filterBrand(allSku.filter(s => s.orders > 0)), 'funnel').sort((a, b) => b.orders - a.orders);
+  document.querySelector('#tableFunnel tbody').innerHTML = list.slice(0, 60).map(s => {
+    const avgCheck = s.orders ? Math.round(s.revenue / s.orders) : 0;
+    return `<tr>
+    <td>${s.sku || s.nm_id}</td><td class="num">${s.orders}</td><td class="num">${s.sales}</td>
+    <td class="num">${s.buyout_pct}%</td><td class="num">${Math.max(0, s.orders - s.sales)}</td>
+    <td class="num">${rub(avgCheck)}</td></tr>`;
+  }).join('');
 }
 
 function renderPlan() {
@@ -838,6 +1041,7 @@ const TITLES = { today: 'Сегодня', focus: 'Фокус', rnp: 'Динам�
 function render() {
   if (!DATA) return;
   document.getElementById('pageTitle').textContent = TITLES[state.tab] || 'WB Manager';
+  renderGuides();
   renderToday(); renderFocus(); renderRnp(); renderStr(); renderFunnel();
   renderMinus(); renderPlan(); renderAds(); renderStock(); renderWarehouses(); renderStop();
 }
