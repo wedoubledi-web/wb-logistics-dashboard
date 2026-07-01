@@ -173,7 +173,6 @@ function buildAllSkuPeriod() {
 function renderGuides() {
   const b = periodBounds();
   const pl = b ? `<b>${b.label}</b>` : 'выбранный период';
-  const w1 = DATA.rnp?.week_current || '—';
   setGuide('today', 'С чего начать', [
     'Светофор — есть ли пожар по кабинету',
     `KPI за ${pl} — выручка, заказы, ДРР`,
@@ -195,10 +194,10 @@ function renderGuides() {
     'Выкупы смотри отдельно (лаг 7–14 дн)',
   ], `Период: ${pl}`);
   setGuide('minus', 'Экономика SKU', [
-    'Сначала «В минусе» — стоп/срез по action',
+    'KPI прибыли и минусов за выбранный период',
+    '«В минусе» — стоп/срез по action',
     '«Залежи» — реклама при нуле продаж',
-    'P&L считается за неделю W1 (' + w1 + '), не зависит от фильтра дат',
-  ], 'Нужна себестоимость в xlsx для точной прибыли');
+  ], `P&L за ${pl} · себестоимость из Jam`);
   setGuide('ads', 'Реклама', [
     '1. Слив — минус + реклама → стоп РК',
     '2. ДРР >15% или CPO высокий → срез ставок',
@@ -227,6 +226,117 @@ function renderGuides() {
     'SKU в минусе, избытке или заморозке',
     'Не довозить и не лить рекламу без решения',
   ], '');
+}
+
+function econAction(s) {
+  const actions = [];
+  if (s.profit < 0) {
+    if (s.ad > 200 && s.drr > 15) actions.push('СТОП РК');
+    else if (s.ad > 0 && s.drr > 12) actions.push('Срез РК −30%');
+    if (s.sales === 0 && s.stock > 20) actions.push('Залежь — не довозить');
+    if (s.sales === 0) actions.push('0 продаж — стоп всего');
+    else if (s.logistics > s.for_pay * 0.3) actions.push('Логистика жрёт — проверить ИЛ');
+    if (!actions.length) actions.push('Разбор экономики / цена');
+  } else if (s.profit_after_ad < 0 && s.ad > 0) {
+    actions.push('Реклама съедает маржу');
+  }
+  return actions.join('; ') || 'Ок';
+}
+
+function buildEconomicsForPeriod() {
+  const bounds = periodBounds();
+  const e = DATA.economics || {};
+  if (!bounds || !e.available) return null;
+
+  const costMap = {};
+  const stockMap = {};
+  (e.skus || []).forEach(s => {
+    costMap[s.nm_id] = s.cost_unit || 0;
+    stockMap[s.nm_id] = s.stock;
+  });
+
+  if (!DATA.sku_series?.available) {
+    return {
+      bounds,
+      cabinet: {
+        profit: e.cabinet?.profit_w1,
+        minus_sku_count: e.cabinet?.minus_sku_count,
+        minus_total: e.cabinet?.minus_total_w1,
+        green_count: e.cabinet?.green_count,
+      },
+      minus: (e.minus || []).map(s => ({
+        ...s, profit: s.profit_w1, for_pay: s.for_pay_w1, ad: s.ad_w1, sales: s.sales_w1,
+      })),
+      green: (e.green || []).map(s => ({
+        ...s, profit: s.profit_w1, sales: s.sales_w1, drr: s.drr_w1,
+      })),
+      zero_sales: (e.zero_sales || []).map(s => ({ ...s, ad: s.ad_w1 })),
+      has_costs: e.has_costs,
+      costs_loaded: e.costs_loaded,
+      fallback: true,
+    };
+  }
+
+  const skus = [];
+  for (const row of Object.values(DATA.sku_series.skus)) {
+    const nm = row.nm_id;
+    let fp = 0, sales = 0, ad = 0, rev = 0, lg = 0, st = 0;
+    for (const [d, v] of Object.entries(row.days)) {
+      if (d >= bounds.from && d <= bounds.to) {
+        fp += v.fp || 0;
+        sales += v.s || 0;
+        ad += v.ad || 0;
+        rev += v.r || 0;
+        lg += v.lg || 0;
+        st += v.st || 0;
+      }
+    }
+    if (!fp && !sales && !ad && !rev && !lg) continue;
+    const cost = costMap[nm] || 0;
+    const cogs = cost >= 5 ? cost * sales : 0;
+    const oper = fp - lg - st - ad;
+    const profit = cogs ? oper - cogs : oper;
+    const drr = rev ? Math.round(ad / rev * 1000) / 10 : 0;
+    const rec = {
+      nm_id: nm,
+      sku: row.sku || nm,
+      brand: row.brand,
+      stock: stockMap[nm] || 0,
+      for_pay: Math.round(fp),
+      profit: Math.round(profit),
+      ad: Math.round(ad),
+      sales,
+      drr,
+      logistics: Math.round(lg),
+      oper_profit: Math.round(oper),
+      profit_after_ad: Math.round(oper),
+    };
+    rec.is_minus = profit < 0 && (sales > 0 || ad > 100);
+    rec.is_green = profit > 500 && sales >= 3;
+    rec.action = econAction(rec);
+    skus.push(rec);
+  }
+
+  const minus = skus.filter(s => s.is_minus).sort((a, b) => a.profit - b.profit);
+  const green = skus.filter(s => s.is_green).sort((a, b) => b.profit - a.profit).slice(0, 20);
+  const zero_sales = skus.filter(s => s.sales === 0 && s.stock > 5)
+    .sort((a, b) => b.stock - a.stock).slice(0, 25);
+
+  return {
+    bounds,
+    cabinet: {
+      profit: Math.round(skus.reduce((a, s) => a + s.profit, 0)),
+      minus_sku_count: minus.length,
+      minus_total: Math.round(minus.reduce((a, s) => a + s.profit, 0)),
+      green_count: green.length,
+      ad: Math.round(skus.reduce((a, s) => a + s.ad, 0)),
+    },
+    minus,
+    green,
+    zero_sales,
+    has_costs: e.has_costs,
+    costs_loaded: e.costs_loaded,
+  };
 }
 
 function qfilter(list, key, fields = ['sku']) {
@@ -452,7 +562,8 @@ function renderToday() {
     sem.style.display = 'flex';
   }
 
-  const e = DATA.economics?.cabinet || {};
+  const ep = buildEconomicsForPeriod();
+  const ec = ep?.cabinet || {};
   document.getElementById('kpiToday').innerHTML = `
     <div class="kpi-card"><span class="icon">₽</span><div class="label">Выручка</div>
       <div class="value">${rub(ps.revenue)}</div>${ps.chg_revenue_pct != null ? trend(ps.chg_revenue_pct, '') : ''}</div>
@@ -466,8 +577,8 @@ function renderToday() {
       <div class="value" style="color:${ps.drr > 15 ? 'var(--red)' : 'inherit'}">${ps.drr}%</div>
       <div class="hint">реклама ${rub(ps.ad)}</div></div>
     <div class="kpi-card"><span class="icon">⚠</span><div class="label">В минусе</div>
-      <div class="value" style="color:var(--red)">${e.minus_sku_count || 0}</div>
-      <div class="hint">${rub(e.minus_total_w1)}</div></div>
+      <div class="value" style="color:var(--red)">${ec.minus_sku_count || 0}</div>
+      <div class="hint">${rub(ec.minus_total)}</div></div>
     <div class="kpi-card"><span class="icon">📦</span><div class="label">Запас кабинета</div>
       <div class="value">${DATA.meta.cabinet_days_now || '—'}<span style="font-size:.9rem"> дн</span></div>
       <div class="hint">цель ${DATA.meta.target_days || 35} дн</div></div>
@@ -666,19 +777,14 @@ function buildFocusForPeriod() {
       action: `+${x.chg}% · ${x.cur.orders} зак · ${rub(x.cur.revenue)}`,
     }));
 
-  const week = DATA.rnp?.week_current || '';
-  const [wFrom, wTo] = week.split(' — ');
-  const isDefaultWeek = wFrom === from && wTo === to;
-  if (isDefaultWeek) {
-    (DATA.economics?.minus || []).slice(0, 4).forEach(s => {
-      items.push({
-        level: 'critical',
-        title: 'В минусе',
-        sku: s.sku || s.nm_id,
-        action: `${rub(s.profit_w1)} · ${s.action || 'разбор экономики'}`,
-      });
+  (buildEconomicsForPeriod()?.minus || []).slice(0, 4).forEach(s => {
+    items.push({
+      level: 'critical',
+      title: 'В минусе',
+      sku: s.sku || s.nm_id,
+      action: `${rub(s.profit)} · ${s.action || 'разбор экономики'}`,
     });
-  }
+  });
 
   const seen = new Set();
   return items.filter(it => {
@@ -859,30 +965,50 @@ function renderPlan() {
 
 function renderMinus() {
   const e = DATA.economics || {};
-  const c = e.cabinet || {};
-  if (!e.available) {
+  const ep = buildEconomicsForPeriod();
+  const labelEl = document.getElementById('minusPeriodLabel');
+  if (labelEl) labelEl.textContent = ep?.bounds ? `· ${ep.bounds.label}` : '';
+
+  if (!e.available || !ep) {
     document.getElementById('minusKpi').innerHTML = '<p class="note">Нет экономики</p>';
     return;
   }
+  const c = ep.cabinet;
   document.getElementById('minusKpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Прибыль W1</div><div class="value">${rub(c.profit_w1)}</div></div>
-    <div class="kpi-card"><div class="label">Минус SKU</div><div class="value z-red">${c.minus_sku_count}</div></div>
-    <div class="kpi-card"><div class="label">Сумма минуса</div><div class="value z-red">${rub(c.minus_total_w1)}</div></div>
-    <div class="kpi-card"><div class="label">В плюсе</div><div class="value z-green">${c.green_count}</div></div>`;
-  const list = qfilter(filterBrand(e.minus || []), 'minus');
+    <div class="kpi-card"><div class="label">Прибыль</div>
+      <div class="value ${c.profit < 0 ? 'z-red' : 'z-green'}">${rub(c.profit)}</div>
+      <div class="hint">за период</div></div>
+    <div class="kpi-card"><div class="label">Минус SKU</div>
+      <div class="value z-red">${c.minus_sku_count}</div></div>
+    <div class="kpi-card"><div class="label">Сумма минуса</div>
+      <div class="value z-red">${rub(c.minus_total)}</div></div>
+    <div class="kpi-card"><div class="label">В плюсе</div>
+      <div class="value z-green">${c.green_count}</div>
+      <div class="hint">реклама ${rub(c.ad)}</div></div>`;
+
+  const list = qfilter(filterBrand(ep.minus || []), 'minus');
   document.querySelector('#tableMinus tbody').innerHTML = list.map(s => `<tr>
     <td><strong>${s.sku || s.nm_id}</strong></td>
-    <td class="num z-red">${rub(s.profit_w1)}</td><td class="num">${rub(s.for_pay_w1)}</td>
-    <td class="num">${rub(s.ad_w1)}</td><td class="num">${s.drr_w1 ? s.drr_w1 + '%' : '—'}</td>
-    <td><span style="font-size:.78rem">${s.action}</span></td></tr>`).join('') || '<tr><td colspan="6">Нет минусовых</td></tr>';
-  document.querySelector('#tableGreen tbody').innerHTML = (e.green || []).map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num z-green">${rub(s.profit_w1)}</td>
-    <td class="num">${s.sales_w1}</td><td class="num">${s.drr_w1 ? s.drr_w1 + '%' : '—'}</td></tr>`).join('');
-  document.querySelector('#tableZero tbody').innerHTML = (e.zero_sales || []).map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num">${s.stock}</td><td class="num">${rub(s.ad_w1)}</td>
+    <td class="num z-red">${rub(s.profit)}</td><td class="num">${rub(s.for_pay)}</td>
+    <td class="num">${rub(s.ad)}</td><td class="num">${s.drr ? s.drr + '%' : '—'}</td>
+    <td><span style="font-size:.78rem">${s.action}</span></td></tr>`).join('')
+    || '<tr><td colspan="6">Нет минусовых за период</td></tr>';
+
+  document.querySelector('#tableGreen tbody').innerHTML = filterBrand(ep.green || []).map(s => `<tr>
+    <td>${s.sku || s.nm_id}</td><td class="num z-green">${rub(s.profit)}</td>
+    <td class="num">${s.sales}</td><td class="num">${s.drr ? s.drr + '%' : '—'}</td></tr>`).join('')
+    || '<tr><td colspan="4">Нет в плюсе за период</td></tr>';
+
+  document.querySelector('#tableZero tbody').innerHTML = filterBrand(ep.zero_sales || []).map(s => `<tr>
+    <td>${s.sku || s.nm_id}</td><td class="num">${s.stock}</td><td class="num">${rub(s.ad)}</td>
     <td>Стоп РК</td></tr>`).join('') || '<tr><td colspan="4">—</td></tr>';
-  document.getElementById('minusNote').innerHTML = e.has_costs
-    ? `Себестоимость: ${e.costs_loaded} SKU` : '⚠ Себестоимость не загружена — прибыль без COGS';
+
+  const costNote = ep.has_costs
+    ? `Себестоимость: ${ep.costs_loaded} SKU`
+    : '⚠ Себестоимость не загружена — прибыль без COGS';
+  document.getElementById('minusNote').innerHTML = ep.fallback
+    ? `${costNote} · <span class="note">нет дневных рядов — показан W1</span>`
+    : `${costNote} · P&L: forPay − логистика − хранение − реклама − COGS`;
 }
 
 function renderAds() {
