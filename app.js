@@ -233,8 +233,8 @@ function renderToday() {
   }
 
   const periodLabel = state.period === 'yesterday' ? 'Вчера' : state.period === '7d' ? 'За 7 дней' : state.period === '30d' ? 'За 30 дней' : ps.label;
-  hero.innerHTML = `<div class="title">${periodLabel}: выручка ${rub(ps.revenue)}, продано ${fmt(ps.sales)} шт</div>
-    <div class="sub">${ps.chg_revenue_pct != null ? trend(ps.chg_revenue_pct, 'к ' + (ps.compare_label || 'прошлому')) : `${fmt(ps.orders)} заказов · ДРР ${ps.drr}%`}</div>`;
+  hero.innerHTML = `<div class="title">${periodLabel}: выручка ${rub(ps.revenue)}, ${fmt(ps.orders)} заказов</div>
+    <div class="sub">${ps.chg_revenue_pct != null ? trend(ps.chg_revenue_pct, 'к ' + (ps.compare_label || 'прошлому')) : `выкуп ${ps.buyout_pct || '—'}% · ДРР ${ps.drr}%`}</div>`;
 
   const alerts = d.alerts || [];
   if (alerts.length) {
@@ -340,7 +340,7 @@ function renderStr() {
 function renderFunnel() {
   const c = DATA.rnp?.cabinet || {};
   document.getElementById('funnelKpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Выкуп W1</div><div class="value">${c.buyout_w1_pct || '—'}%</div></div>
+    <div class="kpi-card"><div class="label">Выкуп 30д</div><div class="value">${c.buyout_30d_pct || c.buyout_w1_pct || '—'}%</div></div>
     <div class="kpi-card"><div class="label">Заказы 30д</div><div class="value">${fmt(DATA.meta.total_sold_30d)}</div></div>`;
   document.querySelector('#tableBuyout tbody').innerHTML = (DATA.rnp?.low_buyout || []).map(s => `<tr>
     <td>${s.sku || s.nm_id}</td><td class="num z-red">${s.buyout_pct}%</td>
