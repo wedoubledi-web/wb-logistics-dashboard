@@ -178,11 +178,11 @@ function renderGuides() {
     `KPI за ${pl} — выручка, заказы, ДРР`,
     'Быстрые задачи ниже → полный список на вкладке <b>Фокус</b>',
   ], 'Период сверху влияет на все вкладки');
-  setGuide('focus', 'Куда смотреть в первую очередь', [
-    '🔴 Срочно — стоп рекламы, дефицит, просадка кабинета',
-    '🟡 Внимание — просели заказы, низкий выкуп',
-    '🟢 Масштабировать — растущие SKU',
-  ], `За период ${pl}`);
+  setGuide('focus', 'Фокус по заказам', [
+    'Сравнение только: <b>вчера</b> vs <b>тот же день недели назад</b>',
+    '🔴 сильная просадка · 🟡 умеренная · 🟢 рост',
+    'Период сверху на эту вкладку не влияет',
+  ], 'Только заказы, без рекламы и P&L');
   setGuide('rnp', 'Динамика кабинета', [
     'Сравни текущий и прошлый период — выручка и заказы',
     'Таблица «Растут» — кандидаты на усиление',
@@ -862,127 +862,90 @@ function renderRnp() {
     <td>${zoneBadge(s.yard_zone)}</td></tr>`).join('');
 }
 
+function focusYesterdayBounds() {
+  const d = DATA.daily;
+  if (!d?.available) return null;
+  const p = d.presets?.yesterday;
+  const yDay = p?.from || d.as_of;
+  const dt = new Date(yDay + 'T12:00:00');
+  dt.setDate(dt.getDate() - 7);
+  const weekAgo = dt.toISOString().slice(0, 10);
+  return {
+    yDay,
+    weekAgo,
+    label: p?.label || yDay,
+    compareLabel: p?.compare_label || weekAgo,
+  };
+}
+
 function buildFocusForPeriod() {
-  const bounds = periodBounds();
-  if (!bounds || !DATA.sku_series?.available) return DATA.rnp?.focus_today || [];
-  const { from, to } = bounds;
-  const [pFrom, pTo] = prevPeriodRange(from, to);
+  const b = focusYesterdayBounds();
+  if (!b || !DATA.sku_series?.available) return [];
+
+  const { yDay, weekAgo, compareLabel } = b;
   const items = [];
-  const drrAvg = DATA.daily?.drr_avg_7d || 0;
+  const yPreset = DATA.daily.presets?.yesterday;
+  const yStats = yPreset?.stats;
+  const prevStats = yPreset?.compare;
 
-  const ps = getPeriodStats();
-  if (ps?.drr > Math.max(drrAvg * 1.2, 12) && ps.revenue) {
-    items.push({
-      level: 'critical',
-      title: 'ДРР периода',
-      sku: 'кабинет',
-      action: `ДРР ${ps.drr}% при выручке ${rub(ps.revenue)} — проверить РК`,
-    });
+  if (yStats && prevStats?.orders > 0) {
+    const chg = Math.round((yStats.orders - prevStats.orders) / prevStats.orders * 100);
+    if (chg <= -25) {
+      items.push({
+        level: 'critical',
+        title: 'Заказы кабинета',
+        sku: 'кабинет',
+        action: `${yStats.orders} vs ${prevStats.orders} вчера (−${Math.abs(chg)}% к неделе назад)`,
+      });
+    } else if (chg >= 25) {
+      items.push({
+        level: 'info',
+        title: 'Заказы кабинета',
+        sku: 'кабинет',
+        action: `${yStats.orders} vs ${prevStats.orders} вчера (+${chg}%)`,
+      });
+    }
   }
-  if (ps?.chg_revenue_pct != null && ps.chg_revenue_pct < -25) {
-    items.push({
-      level: 'critical',
-      title: 'Просадка выручки',
-      sku: 'кабинет',
-      action: `−${Math.abs(ps.chg_revenue_pct)}% к ${ps.compare_label || 'прошлому периоду'}`,
-    });
-  }
 
-  (DATA.urgent || []).slice(0, 4).forEach(s => {
-    items.push({
-      level: 'critical',
-      title: 'Дефицит запаса',
-      sku: s.sku || s.nm_id,
-      action: `Остаток ${s.stock} шт · отгрузка ${s.batch || '—'} → ${s.warehouse_best || 'склад'}`,
-    });
-  });
+  Object.values(DATA.sku_series.skus || {}).forEach(row => {
+    const cur = sumSkuPeriod(row.nm_id, yDay, yDay).orders;
+    const prev = sumSkuPeriod(row.nm_id, weekAgo, weekAgo).orders;
+    if (cur === 0 && prev === 0) return;
 
-  const skuRows = Object.values(DATA.sku_series.skus || {});
-  const scored = skuRows.map(row => {
-    const cur = sumSkuPeriod(row.nm_id, from, to);
-    const prev = sumSkuPeriod(row.nm_id, pFrom, pTo);
-    const o30 = sumSkuPeriod(row.nm_id,
-      DATA.sku_series.from || from,
-      to).orders;
+    const sku = row.sku || row.nm_id;
     let chg = null;
-    if (prev.orders > 0) chg = Math.round((cur.orders - prev.orders) / prev.orders * 100);
-    else if (cur.orders > 0) chg = 100;
-    return { row, cur, prev, chg, o30 };
-  });
+    if (prev > 0) chg = Math.round((cur - prev) / prev * 100);
+    else if (cur > 0) chg = 100;
 
-  scored
-    .filter(x => x.cur.ad > 300 && x.cur.orders === 0)
-    .sort((a, b) => b.cur.ad - a.cur.ad)
-    .slice(0, 5)
-    .forEach(x => items.push({
-      level: 'critical',
-      title: 'Реклама без заказов',
-      sku: x.row.sku || x.row.nm_id,
-      action: `Расход ${rub(x.cur.ad)} за период · стоп РК`,
-    }));
-
-  scored
-    .filter(x => x.cur.drr > 18 && x.cur.revenue > 0)
-    .sort((a, b) => b.cur.drr - a.cur.drr)
-    .slice(0, 5)
-    .forEach(x => items.push({
-      level: 'critical',
-      title: 'Высокий ДРР',
-      sku: x.row.sku || x.row.nm_id,
-      action: `ДРР ${x.cur.drr}% · ${x.cur.orders} зак · ${rub(x.cur.revenue)} выручка`,
-    }));
-
-  scored
-    .filter(x => x.chg != null && x.chg < -30 && x.prev.orders >= 3)
-    .sort((a, b) => a.chg - b.chg)
-    .slice(0, 5)
-    .forEach(x => items.push({
-      level: 'warning',
-      title: 'Просели заказы',
-      sku: x.row.sku || x.row.nm_id,
-      action: `${x.cur.orders} vs ${x.prev.orders} зак (−${Math.abs(x.chg)}%)`,
-    }));
-
-  scored
-    .filter(x => x.cur.orders === 0 && x.o30 >= 5)
-    .sort((a, b) => b.o30 - a.o30)
-    .slice(0, 4)
-    .forEach(x => items.push({
-      level: 'warning',
-      title: 'Нет заказов в периоде',
-      sku: x.row.sku || x.row.nm_id,
-      action: `0 зак за ${bounds.label || from + '…' + to} · было ${x.o30} за 60д`,
-    }));
-
-  scored
-    .filter(x => x.cur.buyout && x.cur.buyout < 65 && x.cur.orders >= 5)
-    .sort((a, b) => a.cur.buyout - b.cur.buyout)
-    .slice(0, 3)
-    .forEach(x => items.push({
-      level: 'warning',
-      title: 'Низкий выкуп',
-      sku: x.row.sku || x.row.nm_id,
-      action: `Выкуп ${x.cur.buyout}% · ${x.cur.orders} зак / ${x.cur.sales} выкуп`,
-    }));
-
-  scored
-    .filter(x => x.chg != null && x.chg > 30 && x.cur.orders >= 3)
-    .sort((a, b) => b.chg - a.chg)
-    .slice(0, 3)
-    .forEach(x => items.push({
-      level: 'info',
-      title: 'Рост заказов',
-      sku: x.row.sku || x.row.nm_id,
-      action: `+${x.chg}% · ${x.cur.orders} зак · ${rub(x.cur.revenue)}`,
-    }));
-
-  (buildEconomicsForPeriod()?.minus || []).slice(0, 4).forEach(s => {
-    items.push({
-      level: 'critical',
-      title: 'В минусе',
-      sku: s.sku || s.nm_id,
-      action: `${rub(s.profit)} · ${s.action || 'разбор экономики'}`,
-    });
+    if (cur === 0 && prev >= 3) {
+      items.push({
+        level: 'critical',
+        title: 'Нет заказов вчера',
+        sku,
+        action: `0 vs ${prev} (${compareLabel || weekAgo})`,
+      });
+    } else if (chg != null && chg <= -30 && prev >= 3) {
+      items.push({
+        level: 'critical',
+        title: 'Просадка заказов',
+        sku,
+        action: `${cur} vs ${prev} вчера (−${Math.abs(chg)}%)`,
+      });
+    } else if (chg != null && chg <= -15 && prev >= 2) {
+      items.push({
+        level: 'warning',
+        title: 'Просадка заказов',
+        sku,
+        action: `${cur} vs ${prev} вчера (−${Math.abs(chg)}%)`,
+      });
+    } else if (chg != null && chg >= 15 && cur >= 2) {
+      items.push({
+        level: 'info',
+        title: 'Рост заказов',
+        sku,
+        action: `${cur} vs ${prev} вчера (+${chg}%)`,
+      });
+    }
   });
 
   const seen = new Set();
@@ -991,27 +954,25 @@ function buildFocusForPeriod() {
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
-  }).slice(0, 15);
+  }).sort((a, b) => {
+    const rank = { critical: 0, warning: 1, info: 2 };
+    return (rank[a.level] ?? 9) - (rank[b.level] ?? 9);
+  }).slice(0, 20);
 }
 
 function renderFocus() {
-  const rnp = DATA.rnp || {};
-  const bounds = periodBounds();
+  const b = focusYesterdayBounds();
   const labelEl = document.getElementById('focusPeriodLabel');
-  if (labelEl) labelEl.textContent = bounds ? `· ${bounds.label}` : '';
+  if (labelEl) {
+    labelEl.textContent = b
+      ? `Сравнение заказов: вчера (${b.yDay}) vs ${b.compareLabel || b.weekAgo}`
+      : '';
+  }
 
   const focus = buildFocusForPeriod();
   document.getElementById('focusCritical').innerHTML = focusHtml(focus.filter(f => f.level === 'critical'));
   document.getElementById('focusWarning').innerHTML = focusHtml(focus.filter(f => f.level === 'warning'));
   document.getElementById('focusGrowth').innerHTML = focusHtml(focus.filter(f => f.level === 'info'));
-
-  const insNote = bounds
-    ? `<p class="note" style="margin-bottom:8px">Инсайты daily-brief · фикс. окно W1 (${rnp.week_current || '—'})</p>`
-    : '';
-  document.getElementById('insightsList').innerHTML = insNote + ((rnp.insights || []).map(ins => `
-    <div class="focus-item"><div class="focus-dot ${ins.priority === 'critical' ? 'critical' : ins.priority === 'warning' ? 'warning' : 'info'}"></div>
-      <div><strong>${ins.title}</strong>${ins.sku ? ' · ' + ins.sku : ''}<br>
-      <span style="color:var(--muted);font-size:.8rem">${ins.action.substring(0, 250)}</span></div></div>`).join('') || '<p class="note">Инсайты после fetch daily-brief</p>');
 }
 
 function strAction(cur, prev, ordersChg, salesChg) {
