@@ -190,16 +190,20 @@ footer{margin-top:28px;color:var(--muted);font-size:.75rem}
     <input class="search" id="searchRnp" placeholder="Поиск…">
     <div class="scroll"><table id="tableRnp"><thead><tr>
       <th>Артикул</th><th class="num">Заказы</th><th class="num">Δ</th>
-      <th class="num">STR Δ</th><th class="num">Выкуп</th><th class="num">ДРР</th><th>Зона</th>
+      <th class="num">Δ заказов</th><th class="num">Δ выкупов</th><th class="num">Выкуп</th><th class="num">ДРР</th><th>Зона</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
 <div class="panel" id="panel-str">
-  <div class="card"><h2>STR просели</h2>
+  <div class="kpi" id="strKpi"></div>
+  <div class="card"><h2>STR просели <span id="strPeriodLabel" style="font-weight:500;color:var(--muted)"></span></h2>
+    <p class="note" style="margin-bottom:10px">STR = динамика <b>заказов</b> за период vs прошлый такой же. Выкупы — с лагом 7–14 дн.</p>
+    <input class="search" id="searchStr" placeholder="Поиск артикула…">
     <div class="scroll"><table id="tableStr"><thead><tr>
-      <th>Артикул</th><th class="num">W1</th><th class="num">W0</th>
-      <th class="num">Δ STR</th><th class="num">Заказы Δ</th><th>Действие</th>
+      <th>Артикул</th><th class="num">Заказы</th><th class="num">Было</th>
+      <th class="num">Δ STR</th><th class="num">Выкупы</th><th class="num">Было</th>
+      <th class="num">Δ выкуп</th><th class="num">Выкуп%</th><th>Действие</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>

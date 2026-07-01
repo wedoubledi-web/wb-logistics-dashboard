@@ -43,8 +43,10 @@ function filterBrand(list) {
 }
 function qfilter(list, key, fields = ['sku']) {
   const q = state.q[key] || '';
-  if (!q) return list;
-  return list.filter(s => fields.some(f => String(s[f] || s.nm_id || '').toLowerCase().includes(q)));
+  let out = list;
+  if (state.brand) out = out.filter(s => s.brand === state.brand);
+  if (!q) return out;
+  return out.filter(s => fields.some(f => String(s[f] || s.nm_id || '').toLowerCase().includes(q)));
 }
 
 function getDailyRows() {
@@ -310,7 +312,7 @@ function renderRnp() {
   document.querySelector('#tableRnp tbody').innerHTML = list.slice(0, 80).map(s => `<tr>
     <td>${s.sku || s.nm_id}</td><td class="num">${s.orders_w1}</td>
     <td class="num">${s.orders_chg_pct != null ? (s.orders_chg_pct > 0 ? '+' : '') + s.orders_chg_pct + '%' : '—'}</td>
-    <td class="num">${s.str_chg != null ? '<span class="' + (s.str_chg < 0 ? 'z-red' : 'z-green') + '">' + (s.str_chg * 100).toFixed(0) + '%</span>' : '—'}</td>
+    <td class="num">${s.sales_chg_pct != null ? '<span class="' + (s.sales_chg_pct < 0 ? 'z-red' : 'z-green') + '">' + (s.sales_chg_pct > 0 ? '+' : '') + s.sales_chg_pct + '%</span>' : '—'}</td>
     <td class="num">${s.buyout_pct ? s.buyout_pct + '%' : '—'}</td>
     <td class="num">${s.drr_w1 ? s.drr_w1 + '%' : '—'}</td>
     <td>${zoneBadge(s.yard_zone)}</td></tr>`).join('');
@@ -514,13 +516,98 @@ function renderFocus() {
       <span style="color:var(--muted);font-size:.8rem">${ins.action.substring(0, 250)}</span></div></div>`).join('') || '<p class="note">Инсайты после fetch daily-brief</p>');
 }
 
+function strAction(cur, prev, ordersChg, salesChg) {
+  const parts = [];
+  if (ordersChg <= -30) parts.push('Спрос просел — карточка, цена, отзывы');
+  else if (ordersChg <= -15) parts.push('Смотреть позиции и конверсию');
+  if (cur.orders >= 3 && cur.buyout && cur.buyout < 65) parts.push(`Выкуп ${cur.buyout}%`);
+  if (cur.ad > 300 && cur.orders === 0) parts.push('Стоп РК');
+  if (salesChg != null && salesChg <= -30 && cur.orders >= prev.orders * 0.8) {
+    parts.push('Выкупы отстают — проверить остатки/логистику');
+  }
+  return parts.join(' · ') || 'Разбор';
+}
+
+function buildStrScored() {
+  const bounds = periodBounds();
+  if (!bounds || !DATA.sku_series?.available) {
+    return (DATA.rnp?.declining || []).map(s => ({
+      sku: s.sku || s.nm_id,
+      nm_id: s.nm_id,
+      brand: s.brand,
+      orders_cur: s.orders_w1,
+      orders_prev: s.orders_w0,
+      orders_chg_pct: s.orders_chg_pct,
+      sales_cur: s.sales_w1,
+      sales_prev: s.sales_w0,
+      sales_chg_pct: s.sales_chg_pct,
+      buyout: s.buyout_pct,
+      action: (s.actions || []).join('; ') || 'Разбор',
+    }));
+  }
+  const [pFrom, pTo] = prevPeriodRange(bounds.from, bounds.to);
+  const rows = [];
+  for (const row of Object.values(DATA.sku_series.skus)) {
+    const cur = sumSkuPeriod(row.nm_id, bounds.from, bounds.to);
+    const prev = sumSkuPeriod(row.nm_id, pFrom, pTo);
+    if (prev.orders < 3 && cur.orders < 2) continue;
+    const ordersChg = prev.orders > 0
+      ? Math.round((cur.orders - prev.orders) / prev.orders * 100)
+      : (cur.orders > 0 ? 100 : 0);
+    const salesChg = prev.sales > 0
+      ? Math.round((cur.sales - prev.sales) / prev.sales * 100)
+      : (cur.sales > 0 ? 100 : null);
+    rows.push({
+      sku: row.sku || row.nm_id,
+      nm_id: row.nm_id,
+      brand: row.brand,
+      orders_cur: cur.orders,
+      orders_prev: prev.orders,
+      orders_chg_pct: ordersChg,
+      sales_cur: cur.sales,
+      sales_prev: prev.sales,
+      sales_chg_pct: salesChg,
+      buyout: cur.buyout,
+      action: strAction(cur, prev, ordersChg, salesChg),
+    });
+  }
+  return rows;
+}
+
 function renderStr() {
-  const list = filterBrand(DATA.rnp?.declining || DATA.skus_declining || []);
+  const bounds = periodBounds();
+  const labelEl = document.getElementById('strPeriodLabel');
+  if (labelEl) labelEl.textContent = bounds ? `· ${bounds.label}` : '';
+
+  const scored = buildStrScored();
+  const declining = scored.filter(r => r.orders_chg_pct <= -15 && r.orders_prev >= 3)
+    .sort((a, b) => a.orders_chg_pct - b.orders_chg_pct);
+  const growing = scored.filter(r => r.orders_chg_pct >= 15 && r.orders_cur >= 3)
+    .sort((a, b) => b.orders_chg_pct - a.orders_chg_pct);
+
+  const kpi = document.getElementById('strKpi');
+  if (kpi) {
+    kpi.innerHTML = `
+      <div class="kpi-card"><div class="label">Просели STR</div>
+        <div class="value z-red">${declining.length}</div>
+        <div class="hint">заказы −15% и хуже</div></div>
+      <div class="kpi-card"><div class="label">Растут</div>
+        <div class="value z-green">${growing.length}</div>
+        <div class="hint">заказы +15% и больше</div></div>
+      <div class="kpi-card"><div class="label">Период</div>
+        <div class="value" style="font-size:1rem">${bounds ? bounds.label : '—'}</div></div>`;
+  }
+
+  const list = qfilter(declining, 'str');
   document.querySelector('#tableStr tbody').innerHTML = list.map(s => `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num">${s.sales_w1 ?? '—'}</td><td class="num">${s.sales_w0 ?? '—'}</td>
-    <td class="num z-red">${s.str_chg != null ? (s.str_chg * 100).toFixed(0) + '%' : '—'}</td>
-    <td class="num">${s.orders_chg_pct != null ? s.orders_chg_pct + '%' : '—'}</td>
-    <td>${(s.actions || []).join('; ') || 'Разбор'}</td></tr>`).join('') || '<tr><td colspan="6">Нет просевших</td></tr>';
+    <td>${s.sku || s.nm_id}</td>
+    <td class="num">${fmt(s.orders_cur)}</td><td class="num">${fmt(s.orders_prev)}</td>
+    <td class="num z-red">${s.orders_chg_pct}%</td>
+    <td class="num">${fmt(s.sales_cur)}</td><td class="num">${fmt(s.sales_prev)}</td>
+    <td class="num">${s.sales_chg_pct != null ? (s.sales_chg_pct > 0 ? '+' : '') + s.sales_chg_pct + '%' : '—'}</td>
+    <td class="num">${s.buyout ? s.buyout + '%' : '—'}</td>
+    <td style="font-size:.78rem">${s.action}</td></tr>`).join('')
+    || '<tr><td colspan="9">Нет просевших за выбранный период</td></tr>';
 }
 
 function renderFunnel() {
@@ -820,7 +907,7 @@ document.getElementById('btnRefresh').addEventListener('click', refreshFromApi);
 });
 
 document.getElementById('brandFilter').addEventListener('change', e => { state.brand = e.target.value; render(); });
-['searchRnp', 'searchPlan', 'searchAds', 'searchStock', 'searchFunnel', 'searchMinus'].forEach(id => {
+['searchRnp', 'searchPlan', 'searchAds', 'searchStock', 'searchFunnel', 'searchMinus', 'searchStr'].forEach(id => {
   const key = id.replace('search', '').toLowerCase();
   document.getElementById(id).addEventListener('input', e => { state.q[key] = e.target.value.toLowerCase(); render(); });
 });
