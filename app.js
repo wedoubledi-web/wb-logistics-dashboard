@@ -77,17 +77,21 @@ function prevPeriodRange(from, to) {
 function getPeriodCompare() {
   const ps = getPeriodStats();
   const bounds = periodBounds();
-  if (!ps || !bounds) return null;
-  if (state.period !== 'custom' && DATA.daily?.presets?.[state.period]) {
-    const p = DATA.daily.presets[state.period];
-    return { cur: ps, prev: p.compare, label: p.compare_label || 'прошлый период',
-      chg_rev: p.chg_revenue_pct, chg_ord: p.chg_orders_pct };
-  }
+  if (!ps || !bounds?.from || !bounds?.to) return null;
   const [pFrom, pTo] = prevPeriodRange(bounds.from, bounds.to);
   const prevRows = (DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo);
   const prev = sumDaily(prevRows);
-  const chg = v => prev && v ? Math.round((ps[v] - prev[v]) / prev[v] * 1000) / 10 : null;
-  return { cur: ps, prev, label: `${pFrom} — ${pTo}`, chg_rev: chg('revenue'), chg_ord: chg('orders') };
+  const chg = v => prev[v] ? Math.round((ps[v] - prev[v]) / prev[v] * 1000) / 10 : null;
+  let chg_rev = chg('revenue');
+  let chg_ord = chg('orders');
+  let label = `${pFrom} — ${pTo}`;
+  if (state.period !== 'custom' && DATA.daily?.presets?.[state.period]) {
+    const p = DATA.daily.presets[state.period];
+    if (p.chg_revenue_pct != null) chg_rev = p.chg_revenue_pct;
+    if (p.chg_orders_pct != null) chg_ord = p.chg_orders_pct;
+    if (p.compare_label) label = p.compare_label;
+  }
+  return { cur: ps, prev, label, chg_rev, chg_ord };
 }
 
 function sumSkuPeriod(nmId, from, to) {
@@ -263,8 +267,22 @@ function getPeriodStats() {
   const rows = getDailyRows();
   if (!rows.length) return null;
   const s = sumDaily(rows);
-  return { ...s, label: `${state.dateFrom} — ${state.dateTo}`, from: state.dateFrom, to: state.dateTo,
-    chg_revenue_pct: null, compare_label: '' };
+  const from = state.dateFrom;
+  const to = state.dateTo;
+  const [pFrom, pTo] = prevPeriodRange(from, to);
+  const prevRows = (DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo);
+  const prev = sumDaily(prevRows);
+  const chg = v => prev[v] ? Math.round((s[v] - prev[v]) / prev[v] * 1000) / 10 : null;
+  return {
+    ...s,
+    label: `${from} — ${to}`,
+    from,
+    to,
+    chg_revenue_pct: chg('revenue'),
+    chg_orders_pct: chg('orders'),
+    chg_sales_pct: chg('sales'),
+    compare_label: `${pFrom} — ${pTo}`,
+  };
 }
 
 function drawLineChart(el, rows, keys, colors) {
@@ -499,7 +517,7 @@ function renderRnp() {
 
   const wc = document.getElementById('weekCompare');
   if (wc) {
-    if (cmp && bounds) {
+    if (cmp?.prev && bounds) {
       wc.innerHTML = `
         <p style="font-size:.78rem;color:var(--muted);margin-bottom:10px">Сейчас: <b>${bounds.label}</b><br>Было: ${cmp.label}</p>
         <div class="compare">
@@ -1106,7 +1124,15 @@ document.getElementById('btnRefresh').addEventListener('click', refreshFromApi);
 ['dateFrom', 'dateTo'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => {
     state.period = 'custom';
+    state.dateFrom = document.getElementById('dateFrom').value;
+    state.dateTo = document.getElementById('dateTo').value;
+    if (state.dateFrom && state.dateTo && state.dateFrom > state.dateTo) {
+      const t = state.dateFrom; state.dateFrom = state.dateTo; state.dateTo = t;
+      document.getElementById('dateFrom').value = state.dateFrom;
+      document.getElementById('dateTo').value = state.dateTo;
+    }
     document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.period === 'custom'));
+    render();
   });
 });
 
