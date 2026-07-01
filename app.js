@@ -506,7 +506,7 @@ function renderStop() {
 }
 
 const TITLES = { today: 'Сегодня', focus: 'Фокус', rnp: 'Динамика', minus: 'Минус / P&L',
-  ads: 'Реклама', stock: 'Остатки', str: 'STR', plan: 'Отгрузка', warehouses: 'Склады',
+  ads: 'Реклама', stock: 'Остатки / запас', str: 'STR', plan: 'Отгрузка', warehouses: 'Склады',
   funnel: 'Воронка', stop: 'Стоп' };
 
 function render() {
