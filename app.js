@@ -121,6 +121,14 @@ function drawBarChart(el, rows, key, colorFn) {
   el.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${bars}${labels}</svg>`;
 }
 
+function updateRangeLabel() {
+  const el = document.getElementById('rangeLabel');
+  if (!el) return;
+  const ps = getPeriodStats();
+  if (ps) el.textContent = `${ps.from || state.dateFrom} — ${ps.to || state.dateTo}`;
+  else if (state.dateFrom) el.textContent = `${state.dateFrom} — ${state.dateTo}`;
+}
+
 async function loadData() {
   try {
     const r = await fetch('data.json?_=' + Date.now(), { cache: 'no-store' });
@@ -128,13 +136,15 @@ async function loadData() {
     DATA = await r.json();
     const badge = document.getElementById('srcBadge');
     const m = DATA.meta;
-    const daysOld = m.snap_date ? Math.floor((Date.now() - new Date(m.snap_date)) / 86400000) : 0;
-    if (daysOld > 3) {
+    const asOf = m.brief_as_of || m.snap_date;
+    const daysOld = asOf ? Math.floor((Date.now() - new Date(asOf)) / 86400000) : 99;
+    if (daysOld > 1) {
       badge.className = 'badge stale';
-      badge.textContent = `данные ${m.snap_date}`;
+      badge.textContent = `⚠ API ${asOf} (${daysOld}д)`;
+      badge.title = 'Нажми «Обновить» на localhost или запусти fetch';
     } else {
       badge.className = 'badge live';
-      badge.textContent = '● ' + m.snap_date;
+      badge.textContent = `● API ${asOf}`;
     }
     const d = DATA.daily;
     if (d?.available) {
@@ -156,7 +166,30 @@ async function loadData() {
   const sel = document.getElementById('brandFilter');
   sel.innerHTML = '<option value="">Все бренды</option>';
   brands.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+  updateRangeLabel();
   render();
+}
+
+async function refreshFromApi() {
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.textContent = '⏳ API…';
+  try {
+    const r = await fetch('/api/refresh', { method: 'POST' });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'refresh failed');
+    await loadData();
+    btn.textContent = '✓ Готово';
+  } catch (e) {
+    await loadData();
+    btn.textContent = '↻ Обновить';
+    if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      alert('На GitHub Pages API недоступен — данные обновляются при публикации.\n\nЛокально: python3 Дашборд/serve.py → кнопка «Обновить»\n\nИли: python3 scripts/wb_manager_fetch.py && publish_dashboard.py');
+    } else {
+      alert('Ошибка обновления: ' + (e.message || e));
+    }
+  }
+  setTimeout(() => { btn.textContent = '↻ Обновить'; btn.disabled = false; }, 2000);
 }
 
 function renderToday() {
@@ -218,6 +251,7 @@ function renderToday() {
     <div class="focus-item"><div class="focus-dot ${f.level}"></div>
       <div><strong>${f.title}</strong> · ${f.sku}<br><span style="color:var(--muted)">${f.action}</span></div></div>`).join('')
     : '<p class="note">Нет срочных задач</p>';
+  updateRangeLabel();
 }
 
 function renderRnp() {
@@ -449,20 +483,30 @@ function setPeriod(p) {
     document.getElementById('dateTo').value = to;
   }
   renderToday();
+  updateRangeLabel();
 }
 
-document.querySelectorAll('.nav-item').forEach(btn => {
+function applyCustomDates() {
+  state.period = 'custom';
+  state.dateFrom = document.getElementById('dateFrom').value;
+  state.dateTo = document.getElementById('dateTo').value;
+  if (state.dateFrom > state.dateTo) {
+    const t = state.dateFrom; state.dateFrom = state.dateTo; state.dateTo = t;
+    document.getElementById('dateFrom').value = state.dateFrom;
+    document.getElementById('dateTo').value = state.dateTo;
+  }
+  document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.period === 'custom'));
+  renderToday();
+}
+
+document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
   btn.addEventListener('click', () => {
     state.tab = btn.dataset.tab;
-    document.querySelectorAll('.nav-item').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-item[data-tab]').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
     document.getElementById('pageTitle').textContent = TITLES[state.tab] || 'WB Manager';
-    const showDates = state.tab === 'today';
-    document.getElementById('periodPills').style.display = showDates ? 'flex' : 'none';
-    document.getElementById('dateFrom').style.display = showDates ? 'inline-block' : 'none';
-    document.getElementById('dateTo').style.display = showDates ? 'inline-block' : 'none';
   });
 });
 
@@ -477,13 +521,13 @@ document.querySelectorAll('.pill').forEach(btn => {
   });
 });
 
+document.getElementById('btnApplyDates').addEventListener('click', applyCustomDates);
+document.getElementById('btnRefresh').addEventListener('click', refreshFromApi);
+
 ['dateFrom', 'dateTo'].forEach(id => {
-  document.getElementById(id).addEventListener('change', e => {
+  document.getElementById(id).addEventListener('change', () => {
     state.period = 'custom';
-    state.dateFrom = document.getElementById('dateFrom').value;
-    state.dateTo = document.getElementById('dateTo').value;
     document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.period === 'custom'));
-    renderToday();
   });
 });
 

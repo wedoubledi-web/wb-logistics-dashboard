@@ -26,6 +26,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
 .topbar h1{font-size:1.55rem;font-weight:700}
 .topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.date-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;box-shadow:var(--shadow)}
+.date-bar-label{font-size:.78rem;color:var(--muted);font-weight:600;white-space:nowrap}
+.date-lbl{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:5px}
+.date-lbl input{margin:0}
+.range-label{font-size:.82rem;color:var(--text);font-weight:500;margin-left:4px}
+.btn-apply,.btn-refresh{border:none;border-radius:10px;padding:8px 14px;font-size:.82rem;cursor:pointer;font-weight:600}
+.btn-apply{background:var(--accent);color:#fff}
+.btn-refresh{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-refresh:hover{background:var(--accent-soft);color:var(--accent)}
+.btn-refresh:disabled{opacity:.5;cursor:wait}
 .pill-group{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px}
 .pill{border:none;background:transparent;padding:6px 12px;border-radius:8px;font-size:.82rem;color:var(--muted);cursor:pointer}
 .pill.active{background:var(--accent);color:#fff}
@@ -124,17 +134,24 @@ footer{margin-top:28px;color:var(--muted);font-size:.75rem}
 <div class="topbar">
   <h1 id="pageTitle">Сегодня</h1>
   <div class="topbar-actions">
-    <div class="pill-group" id="periodPills">
-      <button class="pill active" data-period="yesterday">Вчера</button>
-      <button class="pill" data-period="7d">7 дней</button>
-      <button class="pill" data-period="30d">30 дней</button>
-      <button class="pill" data-period="custom">Период</button>
-    </div>
-    <input type="date" class="date-input" id="dateFrom" title="С">
-    <input type="date" class="date-input" id="dateTo" title="По">
     <select class="ctrl" id="brandFilter"><option value="">Все бренды</option></select>
+    <button class="btn-refresh" id="btnRefresh" title="Подтянуть данные с WB API">↻ Обновить</button>
     <span class="badge demo" id="srcBadge">загрузка…</span>
   </div>
+</div>
+
+<div class="date-bar" id="dateBar">
+  <span class="date-bar-label">Период</span>
+  <div class="pill-group" id="periodPills">
+    <button class="pill active" data-period="yesterday">Вчера</button>
+    <button class="pill" data-period="7d">7 дней</button>
+    <button class="pill" data-period="30d">30 дней</button>
+    <button class="pill" data-period="custom">Свой период</button>
+  </div>
+  <label class="date-lbl">с <input type="date" class="date-input" id="dateFrom"></label>
+  <label class="date-lbl">по <input type="date" class="date-input" id="dateTo"></label>
+  <button class="btn-apply" id="btnApplyDates">Применить</button>
+  <span class="range-label" id="rangeLabel"></span>
 </div>
 
 <!-- Сегодня -->
