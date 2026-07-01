@@ -39,7 +39,44 @@ function daysCell(now, after) {
 }
 function filterBrand(list) {
   if (!state.brand) return list;
-  return list.filter(s => s.brand === state.brand);
+  return list.filter(s => brandOf(s) === state.brand);
+}
+
+function brandOf(s) {
+  if (s.brand) return s.brand;
+  const nm = s.nm_id;
+  if (!nm || !DATA?.skus_all) return '';
+  const row = DATA.skus_all.find(x => x.nm_id === nm);
+  return row?.brand || '';
+}
+
+function brandNmIds() {
+  if (!state.brand || !DATA?.skus_all) return null;
+  return new Set(DATA.skus_all.filter(s => s.brand === state.brand).map(s => s.nm_id));
+}
+
+function sumSkuPeriodBrand(from, to) {
+  const nms = brandNmIds();
+  if (!nms || !DATA.sku_series?.available) return null;
+  let orders = 0, revenue = 0, sales = 0, ad = 0;
+  for (const nm of nms) {
+    const s = sumSkuPeriod(nm, from, to);
+    orders += s.orders;
+    revenue += s.revenue;
+    sales += s.sales;
+    ad += s.ad;
+  }
+  return {
+    orders, revenue, sales, ad,
+    drr: revenue ? Math.round(ad / revenue * 1000) / 10 : 0,
+    buyout_pct: orders ? Math.round(sales / orders * 1000) / 10 : 0,
+    avg_check: orders ? Math.round(revenue / orders) : 0,
+  };
+}
+
+function canApiRefresh() {
+  const h = location.hostname;
+  return h === 'localhost' || h === '127.0.0.1';
 }
 function setGuide(id, title, steps, sub) {
   const el = document.getElementById('guide-' + id);
@@ -79,13 +116,14 @@ function getPeriodCompare() {
   const bounds = periodBounds();
   if (!ps || !bounds?.from || !bounds?.to) return null;
   const [pFrom, pTo] = prevPeriodRange(bounds.from, bounds.to);
-  const prevRows = (DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo);
-  const prev = sumDaily(prevRows);
+  const prev = state.brand
+    ? (sumSkuPeriodBrand(pFrom, pTo) || { revenue: 0, orders: 0, sales: 0, ad: 0, drr: 0, buyout_pct: 0 })
+    : sumDaily((DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo));
   const chg = v => prev[v] ? Math.round((ps[v] - prev[v]) / prev[v] * 1000) / 10 : null;
   let chg_rev = chg('revenue');
   let chg_ord = chg('orders');
   let label = `${pFrom} — ${pTo}`;
-  if (state.period !== 'custom' && DATA.daily?.presets?.[state.period]) {
+  if (!state.brand && state.period !== 'custom' && DATA.daily?.presets?.[state.period]) {
     const p = DATA.daily.presets[state.period];
     if (p.chg_revenue_pct != null) chg_rev = p.chg_revenue_pct;
     if (p.chg_orders_pct != null) chg_ord = p.chg_orders_pct;
@@ -167,7 +205,8 @@ function buildAllSkuPeriod() {
     s.grow_action = ordersChg >= 15 ? 'Масштабировать — спрос растёт' : '';
     s.decline_action = ordersChg <= -15 ? 'Разбор карточки / цена / отзывы' : '';
     return s;
-  }).filter(s => s.orders > 0 || s.orders_prev >= 2 || s.ad > 100);
+  }).filter(s => s.orders > 0 || s.orders_prev >= 2 || s.ad > 100)
+    .filter(s => !state.brand || s.brand === state.brand);
 }
 
 function renderGuides() {
@@ -243,14 +282,36 @@ function econAction(s) {
   return actions.join('; ') || 'Ок';
 }
 
+function economicsBrandSlice(ep) {
+  if (!ep || !state.brand) return ep;
+  const minus = (ep.minus || []).filter(s => brandOf(s) === state.brand);
+  const green = (ep.green || []).filter(s => brandOf(s) === state.brand);
+  const zero_sales = (ep.zero_sales || []).filter(s => brandOf(s) === state.brand);
+  const tracked = [...minus, ...green];
+  return {
+    ...ep,
+    minus,
+    green,
+    zero_sales,
+    cabinet: {
+      profit: Math.round(tracked.reduce((a, s) => a + (s.profit || 0), 0)),
+      minus_sku_count: minus.length,
+      minus_total: Math.round(minus.reduce((a, s) => a + (s.profit || 0), 0)),
+      green_count: green.length,
+      ad: Math.round(tracked.concat(zero_sales).reduce((a, s) => a + (s.ad || 0), 0)),
+    },
+  };
+}
+
 function buildEconomicsForPeriod() {
   const bounds = periodBounds();
   const e = DATA.economics || {};
   if (!bounds || !e.available) return null;
 
+  let ep;
   if (state.period !== 'custom' && e.periods?.[state.period]) {
     const p = e.periods[state.period];
-    return {
+    ep = {
       bounds: { ...bounds, from: p.from, to: p.to },
       cabinet: p.cabinet,
       minus: p.minus,
@@ -260,101 +321,104 @@ function buildEconomicsForPeriod() {
       costs_loaded: e.costs_loaded,
       source: 'server',
     };
-  }
+  } else {
+    const costMap = {};
+    const stockMap = {};
+    const metaMap = {};
+    (e.skus || []).forEach(s => {
+      costMap[s.nm_id] = s.cost_unit || 0;
+      stockMap[s.nm_id] = s.stock;
+      metaMap[s.nm_id] = s;
+    });
 
-  const costMap = {};
-  const stockMap = {};
-  const metaMap = {};
-  (e.skus || []).forEach(s => {
-    costMap[s.nm_id] = s.cost_unit || 0;
-    stockMap[s.nm_id] = s.stock;
-    metaMap[s.nm_id] = s;
-  });
-
-  if (!DATA.sku_series?.available) {
-    return {
-      bounds,
-      cabinet: {
-        profit: e.cabinet?.profit_w1,
-        minus_sku_count: e.cabinet?.minus_sku_count,
-        minus_total: e.cabinet?.minus_total_w1,
-        green_count: e.cabinet?.green_count,
-      },
-      minus: (e.minus || []).map(s => ({
-        ...s, profit: s.profit_w1, for_pay: s.for_pay_w1, ad: s.ad_w1, sales: s.sales_w1,
-      })),
-      green: (e.green || []).map(s => ({
-        ...s, profit: s.profit_w1, sales: s.sales_w1, drr: s.drr_w1,
-      })),
-      zero_sales: (e.zero_sales || []).map(s => ({ ...s, ad: s.ad_w1 })),
-      has_costs: e.has_costs,
-      costs_loaded: e.costs_loaded,
-      fallback: true,
-    };
-  }
-
-  const skus = [];
-  for (const base of (e.skus || [])) {
-    const nm = base.nm_id;
-    const row = DATA.sku_series.skus[String(nm)];
-    if (!row?.days) continue;
-    let fp = 0, sales = 0, ad = 0, rev = 0, lg = 0, st = 0;
-    for (const [d, v] of Object.entries(row.days)) {
-      if (d >= bounds.from && d <= bounds.to) {
-        fp += v.fp || 0;
-        sales += v.s || 0;
-        ad += v.ad || 0;
-        rev += v.r || 0;
-        lg += v.lg || 0;
-        st += v.st || 0;
+    if (!DATA.sku_series?.available) {
+      ep = {
+        bounds,
+        cabinet: {
+          profit: e.cabinet?.profit_w1,
+          minus_sku_count: e.cabinet?.minus_sku_count,
+          minus_total: e.cabinet?.minus_total_w1,
+          green_count: e.cabinet?.green_count,
+        },
+        minus: (e.minus || []).map(s => ({
+          ...s, profit: s.profit_w1, for_pay: s.for_pay_w1, ad: s.ad_w1, sales: s.sales_w1,
+        })),
+        green: (e.green || []).map(s => ({
+          ...s, profit: s.profit_w1, sales: s.sales_w1, drr: s.drr_w1,
+        })),
+        zero_sales: (e.zero_sales || []).map(s => ({ ...s, ad: s.ad_w1 })),
+        has_costs: e.has_costs,
+        costs_loaded: e.costs_loaded,
+        fallback: true,
+      };
+    } else {
+      const skus = [];
+      const nms = brandNmIds();
+      for (const base of (e.skus || [])) {
+        const nm = base.nm_id;
+        if (nms && !nms.has(nm)) continue;
+        const row = DATA.sku_series.skus[String(nm)];
+        if (!row?.days) continue;
+        let fp = 0, sales = 0, ad = 0, rev = 0, lg = 0, st = 0;
+        for (const [d, v] of Object.entries(row.days)) {
+          if (d >= bounds.from && d <= bounds.to) {
+            fp += v.fp || 0;
+            sales += v.s || 0;
+            ad += v.ad || 0;
+            rev += v.r || 0;
+            lg += v.lg || 0;
+            st += v.st || 0;
+          }
+        }
+        if (!fp && !sales && !ad && !rev && !lg && !st) continue;
+        const cost = costMap[nm] || 0;
+        const cogs = cost >= 5 ? cost * sales : 0;
+        const oper = fp - lg - st - ad;
+        const profit = cogs ? oper - cogs : oper;
+        const drr = rev ? Math.round(ad / rev * 1000) / 10 : 0;
+        const rec = {
+          nm_id: nm,
+          sku: row.sku || base.sku || nm,
+          brand: row.brand || base.brand,
+          stock: stockMap[nm] || 0,
+          for_pay: Math.round(fp),
+          profit: Math.round(profit),
+          ad: Math.round(ad),
+          sales,
+          drr,
+          logistics: Math.round(lg),
+          oper_profit: Math.round(oper),
+          profit_after_ad: Math.round(oper),
+        };
+        rec.is_minus = profit < 0 && (sales > 0 || ad > 100);
+        rec.is_green = profit > 500 && sales >= 3;
+        rec.action = econAction(rec);
+        skus.push(rec);
       }
+
+      const minus = skus.filter(s => s.is_minus).sort((a, b) => a.profit - b.profit);
+      const green = skus.filter(s => s.is_green).sort((a, b) => b.profit - a.profit).slice(0, 20);
+      const zero_sales = skus.filter(s => s.sales === 0 && s.stock > 5)
+        .sort((a, b) => b.stock - a.stock).slice(0, 25);
+
+      ep = {
+        bounds,
+        cabinet: {
+          profit: Math.round(skus.reduce((a, s) => a + s.profit, 0)),
+          minus_sku_count: minus.length,
+          minus_total: Math.round(minus.reduce((a, s) => a + s.profit, 0)),
+          green_count: green.length,
+          ad: Math.round(skus.reduce((a, s) => a + s.ad, 0)),
+        },
+        minus,
+        green,
+        zero_sales,
+        has_costs: e.has_costs,
+        costs_loaded: e.costs_loaded,
+      };
     }
-    if (!fp && !sales && !ad && !rev && !lg && !st) continue;
-    const cost = costMap[nm] || 0;
-    const cogs = cost >= 5 ? cost * sales : 0;
-    const oper = fp - lg - st - ad;
-    const profit = cogs ? oper - cogs : oper;
-    const drr = rev ? Math.round(ad / rev * 1000) / 10 : 0;
-    const rec = {
-      nm_id: nm,
-      sku: row.sku || base.sku || nm,
-      brand: row.brand || base.brand,
-      stock: stockMap[nm] || 0,
-      for_pay: Math.round(fp),
-      profit: Math.round(profit),
-      ad: Math.round(ad),
-      sales,
-      drr,
-      logistics: Math.round(lg),
-      oper_profit: Math.round(oper),
-      profit_after_ad: Math.round(oper),
-    };
-    rec.is_minus = profit < 0 && (sales > 0 || ad > 100);
-    rec.is_green = profit > 500 && sales >= 3;
-    rec.action = econAction(rec);
-    skus.push(rec);
   }
-
-  const minus = skus.filter(s => s.is_minus).sort((a, b) => a.profit - b.profit);
-  const green = skus.filter(s => s.is_green).sort((a, b) => b.profit - a.profit).slice(0, 20);
-  const zero_sales = skus.filter(s => s.sales === 0 && s.stock > 5)
-    .sort((a, b) => b.stock - a.stock).slice(0, 25);
-
-  return {
-    bounds,
-    cabinet: {
-      profit: Math.round(skus.reduce((a, s) => a + s.profit, 0)),
-      minus_sku_count: minus.length,
-      minus_total: Math.round(minus.reduce((a, s) => a + s.profit, 0)),
-      green_count: green.length,
-      ad: Math.round(skus.reduce((a, s) => a + s.ad, 0)),
-    },
-    minus,
-    green,
-    zero_sales,
-    has_costs: e.has_costs,
-    costs_loaded: e.costs_loaded,
-  };
+  return economicsBrandSlice(ep);
 }
 
 function filterDailyByPeriod(rows, from, to) {
@@ -455,6 +519,7 @@ function buildAdsForPeriod() {
 
   if (DATA.sku_series?.available) {
     for (const row of Object.values(DATA.sku_series.skus)) {
+      if (state.brand && row.brand !== state.brand) continue;
       const adRow = adSkuMeta[row.nm_id];
       if (adRow) pushSku(row.nm_id, row.sku || adRow.sku, adRow.daily, { campaigns_count: adRow.campaigns_count });
       else pushSku(row.nm_id, row.sku, null);
@@ -494,7 +559,7 @@ function buildAdsForPeriod() {
       drr: c.drr_w1,
       fallback: true,
     };
-  }).filter(c => c.spend > 0).sort((x, y) => y.spend - x.spend);
+  }).filter(c => c.spend > 0).filter(c => !state.brand || brandOf(c) === state.brand).sort((x, y) => y.spend - x.spend);
 
   const ep = buildEconomicsForPeriod();
   const econMap = {};
@@ -541,7 +606,7 @@ function buildAdsForPeriod() {
 function qfilter(list, key, fields = ['sku']) {
   const q = state.q[key] || '';
   let out = list;
-  if (state.brand) out = out.filter(s => s.brand === state.brand);
+  if (state.brand) out = out.filter(s => brandOf(s) === state.brand);
   if (!q) return out;
   return out.filter(s => fields.some(f => String(s[f] || s.nm_id || '').toLowerCase().includes(q)));
 }
@@ -567,30 +632,61 @@ function sumDaily(rows) {
 function getPeriodStats() {
   const d = DATA.daily;
   if (!d?.available) return null;
+
+  let from, to, label, compareLabel, presetChg;
   if (state.period !== 'custom' && d.presets?.[state.period]) {
     const p = d.presets[state.period];
-    return { ...p.stats, chg_revenue_pct: p.chg_revenue_pct, chg_orders_pct: p.chg_orders_pct,
-      chg_sales_pct: p.chg_sales_pct, compare_label: p.compare_label, label: p.label,
-      from: p.from, to: p.to };
+    from = p.from;
+    to = p.to;
+    label = p.label;
+    compareLabel = p.compare_label;
+    presetChg = {
+      chg_revenue_pct: p.chg_revenue_pct,
+      chg_orders_pct: p.chg_orders_pct,
+      chg_sales_pct: p.chg_sales_pct,
+    };
+    if (!state.brand) {
+      return { ...p.stats, ...presetChg, compare_label: compareLabel, label, from, to };
+    }
+  } else {
+    from = state.dateFrom;
+    to = state.dateTo;
+    label = `${from} — ${to}`;
+    const rows = getDailyRows();
+    if (!rows.length) return null;
+    if (!state.brand) {
+      const s = sumDaily(rows);
+      const [pFrom, pTo] = prevPeriodRange(from, to);
+      const prevRows = (DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo);
+      const prev = sumDaily(prevRows);
+      const chg = v => prev[v] ? Math.round((s[v] - prev[v]) / prev[v] * 1000) / 10 : null;
+      return {
+        ...s,
+        label,
+        from,
+        to,
+        chg_revenue_pct: chg('revenue'),
+        chg_orders_pct: chg('orders'),
+        chg_sales_pct: chg('sales'),
+        compare_label: `${pFrom} — ${pTo}`,
+      };
+    }
   }
-  const rows = getDailyRows();
-  if (!rows.length) return null;
-  const s = sumDaily(rows);
-  const from = state.dateFrom;
-  const to = state.dateTo;
+
+  const brandStats = sumSkuPeriodBrand(from, to);
+  if (!brandStats) return null;
   const [pFrom, pTo] = prevPeriodRange(from, to);
-  const prevRows = (DATA.daily?.daily || []).filter(r => r.date >= pFrom && r.date <= pTo);
-  const prev = sumDaily(prevRows);
-  const chg = v => prev[v] ? Math.round((s[v] - prev[v]) / prev[v] * 1000) / 10 : null;
+  const prevBrand = sumSkuPeriodBrand(pFrom, pTo) || { revenue: 0, orders: 0, sales: 0 };
+  const chg = v => prevBrand[v] ? Math.round((brandStats[v] - prevBrand[v]) / prevBrand[v] * 1000) / 10 : null;
   return {
-    ...s,
-    label: `${from} — ${to}`,
+    ...brandStats,
+    label: `${label} · ${state.brand}`,
     from,
     to,
     chg_revenue_pct: chg('revenue'),
     chg_orders_pct: chg('orders'),
     chg_sales_pct: chg('sales'),
-    compare_label: `${pFrom} — ${pTo}`,
+    compare_label: compareLabel || `${pFrom} — ${pTo}`,
   };
 }
 
@@ -704,13 +800,36 @@ async function loadData() {
   }
   const brands = [...new Set(DATA.skus_all.map(s => s.brand).filter(Boolean))].sort();
   const sel = document.getElementById('brandFilter');
+  const prevBrand = state.brand || sel.value;
   sel.innerHTML = '<option value="">Все бренды</option>';
   brands.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+  if (prevBrand && brands.includes(prevBrand)) {
+    sel.value = prevBrand;
+    state.brand = prevBrand;
+  } else if (prevBrand) {
+    state.brand = '';
+  }
+  setupRefreshUi();
   updateRangeLabel();
   render();
 }
 
+function setupRefreshUi() {
+  const btn = document.getElementById('btnRefresh');
+  if (!btn) return;
+  if (canApiRefresh()) {
+    btn.disabled = false;
+    btn.title = 'Подтянуть данные с WB API (локальный serve.py)';
+    btn.classList.remove('btn-refresh-off');
+  } else {
+    btn.disabled = true;
+    btn.title = 'На GitHub Pages данные обновляются при публикации (fetch + publish_dashboard.py)';
+    btn.classList.add('btn-refresh-off');
+  }
+}
+
 async function refreshFromApi() {
+  if (!canApiRefresh()) return;
   const btn = document.getElementById('btnRefresh');
   btn.disabled = true;
   btn.textContent = '⏳ API…';
@@ -723,13 +842,9 @@ async function refreshFromApi() {
   } catch (e) {
     await loadData();
     btn.textContent = '↻ Обновить';
-    if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      alert('На GitHub Pages API недоступен — данные обновляются при публикации.\n\nЛокально: python3 Дашборд/serve.py → кнопка «Обновить»\n\nИли: python3 scripts/wb_manager_fetch.py && publish_dashboard.py');
-    } else {
-      alert('Ошибка обновления: ' + (e.message || e));
-    }
+    alert('Ошибка обновления: ' + (e.message || e));
   }
-  setTimeout(() => { btn.textContent = '↻ Обновить'; btn.disabled = false; }, 2000);
+  setTimeout(() => { setupRefreshUi(); btn.textContent = '↻ Обновить'; }, 2000);
 }
 
 function renderToday() {
@@ -888,7 +1003,7 @@ function buildFocusForPeriod() {
   const yStats = yPreset?.stats;
   const prevStats = yPreset?.compare;
 
-  if (yStats && prevStats?.orders > 0) {
+  if (yStats && prevStats?.orders > 0 && !state.brand) {
     const chg = Math.round((yStats.orders - prevStats.orders) / prevStats.orders * 100);
     if (chg <= -25) {
       items.push({
@@ -908,6 +1023,7 @@ function buildFocusForPeriod() {
   }
 
   Object.values(DATA.sku_series.skus || {}).forEach(row => {
+    if (state.brand && row.brand !== state.brand) return;
     const cur = sumSkuPeriod(row.nm_id, yDay, yDay).orders;
     const prev = sumSkuPeriod(row.nm_id, weekAgo, weekAgo).orders;
     if (cur === 0 && prev === 0) return;

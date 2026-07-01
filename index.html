@@ -35,7 +35,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn-apply{background:var(--accent);color:#fff}
 .btn-refresh{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
 .btn-refresh:hover{background:var(--accent-soft);color:var(--accent)}
-.btn-refresh:disabled{opacity:.5;cursor:wait}
+.btn-refresh:disabled{opacity:.45;cursor:not-allowed}
+.btn-refresh-off:hover{background:var(--surface2);color:var(--text)}
 .pill-group{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px}
 .pill{border:none;background:transparent;padding:6px 12px;border-radius:8px;font-size:.82rem;color:var(--muted);cursor:pointer}
 .pill.active{background:var(--accent);color:#fff}
@@ -146,7 +147,7 @@ footer{margin-top:28px;color:var(--muted);font-size:.75rem}
   <h1 id="pageTitle">Сегодня</h1>
   <div class="topbar-actions">
     <select class="ctrl" id="brandFilter"><option value="">Все бренды</option></select>
-    <button class="btn-refresh" id="btnRefresh" title="Подтянуть данные с WB API">↻ Обновить</button>
+    <button type="button" class="btn-refresh" id="btnRefresh" title="Подтянуть данные с WB API">↻ Обновить</button>
     <span class="badge demo" id="srcBadge">загрузка…</span>
   </div>
 </div>
