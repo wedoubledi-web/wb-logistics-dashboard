@@ -175,14 +175,14 @@ async function loadData() {
     }
     const d = DATA.daily;
     if (d?.available) {
-      state.dateTo = d.as_of;
-      state.dateFrom = d.as_of;
-      document.getElementById('dateTo').value = d.as_of;
-      document.getElementById('dateFrom').value = d.as_of;
       document.getElementById('dateTo').max = d.as_of;
       document.getElementById('dateFrom').max = d.as_of;
       const minD = d.daily[0]?.date;
-      if (minD) { document.getElementById('dateFrom').min = minD; document.getElementById('dateTo').min = minD; }
+      if (minD) {
+        document.getElementById('dateFrom').min = minD;
+        document.getElementById('dateTo').min = minD;
+      }
+      syncDatesFromPeriod();
     }
   } catch (e) {
     document.getElementById('srcBadge').className = 'badge demo';
@@ -279,7 +279,7 @@ function renderToday() {
   drawLineChart(document.getElementById('chartRevenue'), revRows, ['revenue', 'sales'], ['#2563eb', '#94a3b8']);
   drawBarChart(document.getElementById('chartDrr'), drrRows, 'drr', r => r.drr > 15 ? '#dc2626' : '#2563eb');
 
-  const focus = (DATA.rnp?.focus_today || []).slice(0, 5);
+  const focus = buildFocusForPeriod().slice(0, 5);
   document.getElementById('todayFocus').innerHTML = focus.length ? focus.map(f => `
     <div class="focus-item"><div class="focus-dot ${f.level}"></div>
       <div><strong>${f.title}</strong> · ${f.sku}<br><span style="color:var(--muted)">${f.action}</span></div></div>`).join('')
@@ -316,16 +316,202 @@ function renderRnp() {
     <td>${zoneBadge(s.yard_zone)}</td></tr>`).join('');
 }
 
+function periodBounds() {
+  const ps = getPeriodStats();
+  if (!ps) return null;
+  return {
+    from: ps.from || state.dateFrom,
+    to: ps.to || state.dateTo,
+    label: ps.label || `${state.dateFrom} — ${state.dateTo}`,
+  };
+}
+
+function prevPeriodRange(from, to) {
+  const df = new Date(from + 'T12:00:00');
+  const dt = new Date(to + 'T12:00:00');
+  const len = Math.round((dt - df) / 86400000) + 1;
+  const prevTo = new Date(df);
+  prevTo.setDate(prevTo.getDate() - 1);
+  const prevFrom = new Date(prevTo);
+  prevFrom.setDate(prevFrom.getDate() - (len - 1));
+  return [prevFrom.toISOString().slice(0, 10), prevTo.toISOString().slice(0, 10)];
+}
+
+function sumSkuPeriod(nmId, from, to) {
+  const row = DATA.sku_series?.skus?.[String(nmId)];
+  if (!row?.days) return { orders: 0, revenue: 0, sales: 0, ad: 0, drr: 0 };
+  let orders = 0, revenue = 0, sales = 0, ad = 0;
+  for (const [d, v] of Object.entries(row.days)) {
+    if (d >= from && d <= to) {
+      orders += v.o || 0;
+      revenue += v.r || 0;
+      sales += v.s || 0;
+      ad += v.ad || 0;
+    }
+  }
+  return {
+    orders, revenue, sales, ad,
+    drr: revenue ? Math.round(ad / revenue * 1000) / 10 : 0,
+    buyout: orders ? Math.round(sales / orders * 1000) / 10 : 0,
+  };
+}
+
+function buildFocusForPeriod() {
+  const bounds = periodBounds();
+  if (!bounds || !DATA.sku_series?.available) return DATA.rnp?.focus_today || [];
+  const { from, to } = bounds;
+  const [pFrom, pTo] = prevPeriodRange(from, to);
+  const items = [];
+  const drrAvg = DATA.daily?.drr_avg_7d || 0;
+
+  const ps = getPeriodStats();
+  if (ps?.drr > Math.max(drrAvg * 1.2, 12) && ps.revenue) {
+    items.push({
+      level: 'critical',
+      title: 'ДРР периода',
+      sku: 'кабинет',
+      action: `ДРР ${ps.drr}% при выручке ${rub(ps.revenue)} — проверить РК`,
+    });
+  }
+  if (ps?.chg_revenue_pct != null && ps.chg_revenue_pct < -25) {
+    items.push({
+      level: 'critical',
+      title: 'Просадка выручки',
+      sku: 'кабинет',
+      action: `−${Math.abs(ps.chg_revenue_pct)}% к ${ps.compare_label || 'прошлому периоду'}`,
+    });
+  }
+
+  (DATA.urgent || []).slice(0, 4).forEach(s => {
+    items.push({
+      level: 'critical',
+      title: 'Дефицит запаса',
+      sku: s.sku || s.nm_id,
+      action: `Остаток ${s.stock} шт · отгрузка ${s.batch || '—'} → ${s.warehouse_best || 'склад'}`,
+    });
+  });
+
+  const skuRows = Object.values(DATA.sku_series.skus || {});
+  const scored = skuRows.map(row => {
+    const cur = sumSkuPeriod(row.nm_id, from, to);
+    const prev = sumSkuPeriod(row.nm_id, pFrom, pTo);
+    const o30 = sumSkuPeriod(row.nm_id,
+      DATA.sku_series.from || from,
+      to).orders;
+    let chg = null;
+    if (prev.orders > 0) chg = Math.round((cur.orders - prev.orders) / prev.orders * 100);
+    else if (cur.orders > 0) chg = 100;
+    return { row, cur, prev, chg, o30 };
+  });
+
+  scored
+    .filter(x => x.cur.ad > 300 && x.cur.orders === 0)
+    .sort((a, b) => b.cur.ad - a.cur.ad)
+    .slice(0, 5)
+    .forEach(x => items.push({
+      level: 'critical',
+      title: 'Реклама без заказов',
+      sku: x.row.sku || x.row.nm_id,
+      action: `Расход ${rub(x.cur.ad)} за период · стоп РК`,
+    }));
+
+  scored
+    .filter(x => x.cur.drr > 18 && x.cur.revenue > 0)
+    .sort((a, b) => b.cur.drr - a.cur.drr)
+    .slice(0, 5)
+    .forEach(x => items.push({
+      level: 'critical',
+      title: 'Высокий ДРР',
+      sku: x.row.sku || x.row.nm_id,
+      action: `ДРР ${x.cur.drr}% · ${x.cur.orders} зак · ${rub(x.cur.revenue)} выручка`,
+    }));
+
+  scored
+    .filter(x => x.chg != null && x.chg < -30 && x.prev.orders >= 3)
+    .sort((a, b) => a.chg - b.chg)
+    .slice(0, 5)
+    .forEach(x => items.push({
+      level: 'warning',
+      title: 'Просели заказы',
+      sku: x.row.sku || x.row.nm_id,
+      action: `${x.cur.orders} vs ${x.prev.orders} зак (−${Math.abs(x.chg)}%)`,
+    }));
+
+  scored
+    .filter(x => x.cur.orders === 0 && x.o30 >= 5)
+    .sort((a, b) => b.o30 - a.o30)
+    .slice(0, 4)
+    .forEach(x => items.push({
+      level: 'warning',
+      title: 'Нет заказов в периоде',
+      sku: x.row.sku || x.row.nm_id,
+      action: `0 зак за ${bounds.label || from + '…' + to} · было ${x.o30} за 60д`,
+    }));
+
+  scored
+    .filter(x => x.cur.buyout && x.cur.buyout < 65 && x.cur.orders >= 5)
+    .sort((a, b) => a.cur.buyout - b.cur.buyout)
+    .slice(0, 3)
+    .forEach(x => items.push({
+      level: 'warning',
+      title: 'Низкий выкуп',
+      sku: x.row.sku || x.row.nm_id,
+      action: `Выкуп ${x.cur.buyout}% · ${x.cur.orders} зак / ${x.cur.sales} выкуп`,
+    }));
+
+  scored
+    .filter(x => x.chg != null && x.chg > 30 && x.cur.orders >= 3)
+    .sort((a, b) => b.chg - a.chg)
+    .slice(0, 3)
+    .forEach(x => items.push({
+      level: 'info',
+      title: 'Рост заказов',
+      sku: x.row.sku || x.row.nm_id,
+      action: `+${x.chg}% · ${x.cur.orders} зак · ${rub(x.cur.revenue)}`,
+    }));
+
+  const week = DATA.rnp?.week_current || '';
+  const [wFrom, wTo] = week.split(' — ');
+  const isDefaultWeek = wFrom === from && wTo === to;
+  if (isDefaultWeek) {
+    (DATA.economics?.minus || []).slice(0, 4).forEach(s => {
+      items.push({
+        level: 'critical',
+        title: 'В минусе',
+        sku: s.sku || s.nm_id,
+        action: `${rub(s.profit_w1)} · ${s.action || 'разбор экономики'}`,
+      });
+    });
+  }
+
+  const seen = new Set();
+  return items.filter(it => {
+    const k = `${it.title}|${it.sku}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).slice(0, 15);
+}
+
 function renderFocus() {
   const rnp = DATA.rnp || {};
-  document.getElementById('focusList').innerHTML = (rnp.focus_today || []).length ? (rnp.focus_today || []).map(f => `
+  const bounds = periodBounds();
+  const labelEl = document.getElementById('focusPeriodLabel');
+  if (labelEl) labelEl.textContent = bounds ? `· ${bounds.label}` : '';
+
+  const focus = buildFocusForPeriod();
+  document.getElementById('focusList').innerHTML = focus.length ? focus.map(f => `
     <div class="focus-item"><div class="focus-dot ${f.level}"></div>
       <div><strong>${f.title}</strong> · ${f.sku}<br><span style="color:var(--muted)">${f.action}</span></div></div>`).join('')
-    : '<p class="note">Нет критичных задач</p>';
-  document.getElementById('insightsList').innerHTML = (rnp.insights || []).map(ins => `
+    : '<p class="note">Нет задач на выбранный период</p>';
+
+  const insNote = bounds
+    ? `<p class="note" style="margin-bottom:8px">Инсайты daily-brief · фикс. окно W1 (${rnp.week_current || '—'})</p>`
+    : '';
+  document.getElementById('insightsList').innerHTML = insNote + ((rnp.insights || []).map(ins => `
     <div class="focus-item"><div class="focus-dot ${ins.priority === 'critical' ? 'critical' : ins.priority === 'warning' ? 'warning' : 'info'}"></div>
       <div><strong>${ins.title}</strong>${ins.sku ? ' · ' + ins.sku : ''}<br>
-      <span style="color:var(--muted);font-size:.8rem">${ins.action.substring(0, 250)}</span></div></div>`).join('') || '<p class="note">Инсайты после fetch daily-brief</p>';
+      <span style="color:var(--muted);font-size:.8rem">${ins.action.substring(0, 250)}</span></div></div>`).join('') || '<p class="note">Инсайты после fetch daily-brief</p>');
 }
 
 function renderStr() {
@@ -569,30 +755,23 @@ function render() {
   renderMinus(); renderPlan(); renderAds(); renderStock(); renderWarehouses(); renderStop();
 }
 
+function syncDatesFromPeriod() {
+  const d = DATA.daily;
+  if (!d?.available || state.period === 'custom') return;
+  const p = d.presets?.[state.period];
+  if (!p) return;
+  state.dateFrom = p.from;
+  state.dateTo = p.to;
+  document.getElementById('dateFrom').value = p.from;
+  document.getElementById('dateTo').value = p.to;
+}
+
 function setPeriod(p) {
   state.period = p;
   document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.period === p));
-  const d = DATA.daily;
-  if (!d?.available) return;
-  if (p === 'yesterday') {
-    state.dateFrom = state.dateTo = d.as_of;
-    document.getElementById('dateFrom').value = d.as_of;
-    document.getElementById('dateTo').value = d.as_of;
-  } else if (p === '7d') {
-    const to = d.as_of;
-    const from = d.daily[Math.max(0, d.daily.length - 7)]?.date || to;
-    state.dateFrom = from; state.dateTo = to;
-    document.getElementById('dateFrom').value = from;
-    document.getElementById('dateTo').value = to;
-  } else if (p === '30d') {
-    const to = d.as_of;
-    const from = d.daily[Math.max(0, d.daily.length - 30)]?.date || to;
-    state.dateFrom = from; state.dateTo = to;
-    document.getElementById('dateFrom').value = from;
-    document.getElementById('dateTo').value = to;
-  }
-  renderToday();
-  updateRangeLabel();
+  if (!DATA?.daily?.available) return;
+  syncDatesFromPeriod();
+  render();
 }
 
 function applyCustomDates() {
@@ -605,7 +784,7 @@ function applyCustomDates() {
     document.getElementById('dateTo').value = state.dateTo;
   }
   document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.period === 'custom'));
-  renderToday();
+  render();
 }
 
 document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
