@@ -248,11 +248,27 @@ function buildEconomicsForPeriod() {
   const e = DATA.economics || {};
   if (!bounds || !e.available) return null;
 
+  if (state.period !== 'custom' && e.periods?.[state.period]) {
+    const p = e.periods[state.period];
+    return {
+      bounds: { ...bounds, from: p.from, to: p.to },
+      cabinet: p.cabinet,
+      minus: p.minus,
+      green: p.green,
+      zero_sales: p.zero_sales,
+      has_costs: e.has_costs,
+      costs_loaded: e.costs_loaded,
+      source: 'server',
+    };
+  }
+
   const costMap = {};
   const stockMap = {};
+  const metaMap = {};
   (e.skus || []).forEach(s => {
     costMap[s.nm_id] = s.cost_unit || 0;
     stockMap[s.nm_id] = s.stock;
+    metaMap[s.nm_id] = s;
   });
 
   if (!DATA.sku_series?.available) {
@@ -278,8 +294,10 @@ function buildEconomicsForPeriod() {
   }
 
   const skus = [];
-  for (const row of Object.values(DATA.sku_series.skus)) {
-    const nm = row.nm_id;
+  for (const base of (e.skus || [])) {
+    const nm = base.nm_id;
+    const row = DATA.sku_series.skus[String(nm)];
+    if (!row?.days) continue;
     let fp = 0, sales = 0, ad = 0, rev = 0, lg = 0, st = 0;
     for (const [d, v] of Object.entries(row.days)) {
       if (d >= bounds.from && d <= bounds.to) {
@@ -291,7 +309,7 @@ function buildEconomicsForPeriod() {
         st += v.st || 0;
       }
     }
-    if (!fp && !sales && !ad && !rev && !lg) continue;
+    if (!fp && !sales && !ad && !rev && !lg && !st) continue;
     const cost = costMap[nm] || 0;
     const cogs = cost >= 5 ? cost * sales : 0;
     const oper = fp - lg - st - ad;
@@ -299,8 +317,8 @@ function buildEconomicsForPeriod() {
     const drr = rev ? Math.round(ad / rev * 1000) / 10 : 0;
     const rec = {
       nm_id: nm,
-      sku: row.sku || nm,
-      brand: row.brand,
+      sku: row.sku || base.sku || nm,
+      brand: row.brand || base.brand,
       stock: stockMap[nm] || 0,
       for_pay: Math.round(fp),
       profit: Math.round(profit),
@@ -1189,7 +1207,9 @@ function renderMinus() {
     : '⚠ Себестоимость не загружена — прибыль без COGS';
   document.getElementById('minusNote').innerHTML = ep.fallback
     ? `${costNote} · <span class="note">нет дневных рядов — показан W1</span>`
-    : `${costNote} · P&L: forPay − логистика − хранение − реклама − COGS`;
+    : ep.source === 'server'
+      ? `${costNote} · P&L из БД: forPay − логистика − хранение − реклама − COGS`
+      : `${costNote} · P&L: forPay − логистика − хранение − реклама − COGS (свой период)`;
 }
 
 function renderAds() {
