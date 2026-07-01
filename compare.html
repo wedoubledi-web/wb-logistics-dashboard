@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WB — Сравнение карточек</title>
+<style>
+:root{--bg:#f0f2f5;--surface:#fff;--border:#e4e7ec;--text:#111827;--muted:#6b7280;
+--accent:#2563eb;--green:#059669;--green-bg:#ecfdf5;--yellow:#d97706;--yellow-bg:#fffbeb;
+--red:#dc2626;--red-bg:#fef2f2;--radius:14px;--shadow:0 1px 3px rgba(0,0,0,.06)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 18px 60px}
+header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+header h1{font-size:1.5rem}
+.back{color:var(--accent);text-decoration:none;font-size:.88rem}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{font-size:.95rem;margin-bottom:12px}
+.drop{border:2px dashed var(--border);border-radius:var(--radius);padding:32px;text-align:center;cursor:pointer;transition:.15s}
+.drop:hover,.drop.drag{border-color:var(--accent);background:var(--green-bg)}
+.drop input{display:none}
+.btn{background:var(--accent);color:#fff;border:none;padding:9px 16px;border-radius:10px;font-size:.88rem;cursor:pointer}
+.btn.secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+select,input[type=number]{border:1px solid var(--border);border-radius:10px;padding:8px 11px;font-size:.85rem}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left}
+th{color:var(--muted);font-size:.68rem;text-transform:uppercase}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.better{color:var(--green);font-weight:600}
+.worse{color:var(--red);font-weight:600}
+.reg-item{padding:12px 14px;border-radius:10px;margin-bottom:8px;font-size:.88rem}
+.reg-item.red{background:var(--red-bg);border-left:4px solid var(--red)}
+.reg-item.yellow{background:var(--yellow-bg);border-left:4px solid var(--yellow)}
+.reg-item.green{background:var(--green-bg);border-left:4px solid var(--green)}
+.reg-item.margin{background:#eff6ff;border-left:4px solid var(--accent)}
+.reg-item.ads{background:#f5f3ff;border-left:4px solid #7c3aed}
+.tag{display:inline-block;font-size:.68rem;padding:2px 7px;border-radius:5px;font-weight:600;margin-right:6px}
+.tag-r{background:var(--red-bg);color:var(--red)}.tag-y{background:var(--yellow-bg);color:var(--yellow)}
+.tag-g{background:var(--green-bg);color:var(--green)}
+.note{font-size:.78rem;color:var(--muted);margin-top:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+</style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <a class="back" href="index.html">← Дашборд</a>
+    <h1>Сравнение карточек</h1>
+    <p class="note">Jam → «Сравнение карточек» → Excel. Регламент по Ярд 2.0 + маржа.</p>
+  </div>
+</header>
+
+<div class="card">
+  <h2>1. Загрузите файл из Jam</h2>
+  <div class="drop" id="dropZone">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+    <p><strong>Перетащите .xlsx</strong> или нажмите для выбора</p>
+    <p class="note">«Сравнение карточек» или «Сравнить поисковые запросы»</p>
+  </div>
+  <div id="fileInfo" class="note" style="margin-top:10px"></div>
+</div>
+
+<div class="card" id="setupCard" style="display:none">
+  <h2>2. Укажите свою карточку</h2>
+  <div class="row">
+    <label>Мой артикул:</label>
+    <select id="myCard"></select>
+    <label>Целевая маржа мин. %</label>
+    <input type="number" id="marginTarget" value="18" min="5" max="50" style="width:70px">
+  </div>
+  <button class="btn" id="btnAnalyze">Построить регламент</button>
+</div>
+
+<div id="results" style="display:none">
+  <div class="card">
+    <h2>Сводка vs конкуренты</h2>
+    <div class="scroll" style="overflow:auto"><table id="cmpTable"><thead></thead><tbody></tbody></table></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Узкое место воронки</h2><div id="bottleneck"></div></div>
+    <div class="card"><h2>Экономика SKU</h2><div id="econBox"></div></div>
+  </div>
+  <div class="card">
+    <h2>Регламент действий (Ярд 2.0)</h2>
+    <div id="regulations"></div>
+  </div>
+</div>
+</div>
+<script src="compare.js"></script>
+</body>
+</html>

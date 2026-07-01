@@ -326,32 +326,60 @@ function renderMinus() {
 
 function renderAds() {
   const e = DATA.economics || {};
-  const c = e.cabinet || {};
+  const a = DATA.ads_detail || {};
+  const c = a.cabinet || e.cabinet || {};
   document.getElementById('adsKpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Реклама W1</div><div class="value">${rub(c.ad_w1)}</div></div>
-    <div class="kpi-card"><div class="label">Слив</div><div class="value z-red">${(e.ad_bleed||[]).length}</div></div>
-    <div class="kpi-card"><div class="label">Кампаний</div><div class="value">${(e.campaigns||[]).length}</div></div>`;
+    <div class="kpi-card"><div class="label">Реклама W1</div><div class="value">${rub(c.spend_w1 || e.cabinet?.ad_w1)}</div></div>
+    <div class="kpi-card"><div class="label">7 дней</div><div class="value">${rub(c.spend_7d)}</div></div>
+    <div class="kpi-card"><div class="label">30 дней</div><div class="value">${rub(c.spend_30d)}</div></div>
+    <div class="kpi-card"><div class="label">Кампаний</div><div class="value">${c.campaigns_total || (e.campaigns||[]).length}</div>
+      <div class="hint">активных ${c.campaigns_active ?? '—'}</div></div>
+    <div class="kpi-card"><div class="label">Слив</div><div class="value z-red">${(e.ad_bleed||[]).length}</div></div>`;
+  document.getElementById('adsNote').textContent = a.note || 'Данные из списаний WB /adv/v1/upd';
+  if (a.daily?.length) {
+    drawBarChart(document.getElementById('chartAdDaily'),
+      a.daily.map(d => ({ date: d.date, drr: d.spend })), 'drr', () => '#2563eb');
+  }
   document.querySelector('#tableAdBleed tbody').innerHTML = (e.ad_bleed || []).map(s => `<tr>
     <td>${s.sku || s.nm_id}</td><td class="num">${rub(s.ad_w1)}</td>
     <td class="num z-red">${rub(s.profit_w1)}</td><td class="num">${s.drr_w1}%</td>
-    <td class="z-red">${s.action}</td></tr>`).join('') || '<tr><td colspan="5">—</td></tr>';
-  document.querySelector('#tableCampaigns tbody').innerHTML = (e.campaigns || []).slice(0, 25).map(c => `<tr>
-    <td><span style="font-size:.72rem;color:var(--muted)">${(c.camp||'').slice(0,35)}</span><br>${c.sku||c.nm_id}</td>
-    <td class="num">${rub(c.spend_w1)}</td><td class="num">${c.drr_w1 ? c.drr_w1+'%' : '—'}</td>
-    <td class="num">${rub(c.profit_w1)}</td>
-    <td>${c.action === 'СТОП' ? '<span class="z-red">СТОП</span>' : c.action === 'Срез' ? '<span class="z-yellow">Срез</span>' : '<span class="z-green">Ок</span>'}</td></tr>`).join('') || '<tr><td colspan="5">—</td></tr>';
+    <td class="num">${s.roas_w1 ? s.roas_w1+'%' : '—'}</td>
+    <td class="z-red">${s.action}</td></tr>`).join('') || '<tr><td colspan="6">—</td></tr>';
+  const camps = a.campaigns || e.campaigns || [];
+  document.querySelector('#tableCampaigns tbody').innerHTML = camps.slice(0, 40).map(c => `<tr>
+    <td><span style="font-size:.72rem;color:var(--muted)">#${c.advert_id || '—'}</span><br>${(c.camp||'').slice(0,35)}</td>
+    <td>${c.sku || c.nm_id || '—'}</td>
+    <td class="num">${rub(c.spend_w1)}</td><td class="num">${rub(c.spend_7d)}</td>
+    <td class="num">${rub(c.spend_30d)}</td>
+    <td>${c.type || '—'}</td><td>${c.status || '—'}</td></tr>`).join('') || '<tr><td colspan="7">—</td></tr>';
   const econMap = {};
   (e.skus || []).forEach(s => { econMap[s.nm_id] = s; });
-  const list = qfilter(filterBrand(DATA.skus_ads || DATA.skus_all.filter(s => s.ad_spend_30d > 0 || s.ad_w1 > 0)), 'ads')
-    .sort((a, b) => (b.ad_w1 || b.ad_spend_30d || 0) - (a.ad_w1 || a.ad_spend_30d || 0));
+  const adSkus = a.skus?.length ? a.skus : null;
+  const list = qfilter(filterBrand(
+    adSkus || DATA.skus_ads || DATA.skus_all.filter(s => s.ad_spend_30d > 0 || s.ad_w1 > 0)
+  ), 'ads').sort((a, b) => (b.spend_30d || b.ad_spend_30d || b.ad_w1 || 0) - (a.spend_30d || a.ad_spend_30d || a.ad_w1 || 0));
   document.querySelector('#tableAds tbody').innerHTML = list.map(s => {
     const ec = econMap[s.nm_id] || {};
-    const rec = s.stop_ads || ec.is_minus ? '<span class="z-red">СТОП</span>'
-      : (ec.drr_w1 > 12) ? '<span class="z-yellow">Срез</span>' : '<span class="z-green">Ок</span>';
-    return `<tr><td>${s.sku || s.nm_id}</td><td class="num">${rub(ec.ad_w1)}</td>
-      <td class="num">${rub(s.ad_spend_30d)}</td><td class="num">${ec.drr_w1 ? ec.drr_w1+'%' : '—'}</td>
-      <td class="num" style="color:${(ec.profit_w1||0)<0?'var(--red)':'inherit'}">${rub(ec.profit_w1)}</td><td>${rec}</td></tr>`;
+    const rec = ec.is_minus || s.stop_ads ? '<span class="z-red">СТОП</span>'
+      : (ec.drr_w1 > 12 || s.drr_w1 > 12) ? '<span class="z-yellow">Срез</span>' : '<span class="z-green">Ок</span>';
+    return `<tr><td>${s.sku || s.nm_id}</td>
+      <td class="num">${rub(s.spend_w1 ?? ec.ad_w1)}</td>
+      <td class="num">${rub(s.spend_7d)}</td>
+      <td class="num">${rub(s.spend_30d ?? s.ad_spend_30d)}</td>
+      <td class="num">${rub(s.revenue_w1 ?? ec.revenue_w1)}</td>
+      <td class="num">${s.drr_w1 ?? ec.drr_w1 ? (s.drr_w1 ?? ec.drr_w1)+'%' : '—'}</td>
+      <td class="num">${s.campaigns_count ?? '—'}</td>
+      <td class="num" style="color:${(ec.profit_w1||0)<0?'var(--red)':'inherit'}">${rub(ec.profit_w1)}</td>
+      <td>${rec}</td></tr>`;
   }).join('');
+  const unmapped = a.unmapped || [];
+  const umCard = document.getElementById('unmappedCard');
+  if (unmapped.length) {
+    umCard.style.display = 'block';
+    document.querySelector('#tableUnmapped tbody').innerHTML = unmapped.map(c => `<tr>
+      <td>${c.advert_id}</td><td>${(c.camp||'').slice(0,50)}</td>
+      <td class="num">${rub(c.spend_30d)}</td></tr>`).join('');
+  } else umCard.style.display = 'none';
 }
 
 function renderStock() {
