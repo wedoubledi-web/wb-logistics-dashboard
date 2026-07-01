@@ -252,8 +252,8 @@ function renderToday() {
   document.getElementById('kpiToday').innerHTML = `
     <div class="kpi-card"><span class="icon">₽</span><div class="label">Выручка</div>
       <div class="value">${rub(ps.revenue)}</div>${ps.chg_revenue_pct != null ? trend(ps.chg_revenue_pct, '') : ''}</div>
-    <div class="kpi-card"><span class="icon">📦</span><div class="label">Выкуплено</div>
-      <div class="value">${fmt(ps.sales)} шт</div>${ps.chg_sales_pct != null ? trend(ps.chg_sales_pct, '') : ''}</div>
+    <div class="kpi-card"><span class="icon">📦</span><div class="label">Заказов</div>
+      <div class="value">${fmt(ps.orders)}</div>${ps.orders_cancelled ? `<div class="hint">отмен ${ps.orders_cancelled}</div>` : ''}</div>
     <div class="kpi-card"><span class="icon">%</span><div class="label">Выкуп</div>
       <div class="value">${ps.buyout_pct || '—'}%</div></div>
     <div class="kpi-card"><span class="icon">🧾</span><div class="label">Средний чек</div>
