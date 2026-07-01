@@ -91,13 +91,56 @@ function focusHtml(items) {
 }
 
 function periodBounds() {
-  const ps = getPeriodStats();
-  if (!ps) return null;
-  return {
-    from: ps.from || state.dateFrom,
-    to: ps.to || state.dateTo,
-    label: ps.label || `${state.dateFrom} — ${state.dateTo}`,
-  };
+  const d = DATA?.daily;
+  let from, to, label;
+  if (d?.available && state.period !== 'custom' && d.presets?.[state.period]) {
+    const p = d.presets[state.period];
+    from = p.from;
+    to = p.to;
+    label = p.label;
+  } else if (state.dateFrom && state.dateTo) {
+    from = state.dateFrom;
+    to = state.dateTo;
+    label = `${from} — ${to}`;
+  } else if (d?.available && d.presets?.yesterday) {
+    const p = d.presets.yesterday;
+    from = p.from;
+    to = p.to;
+    label = p.label;
+  } else return null;
+  if (state.brand) label = `${label} · ${state.brand}`;
+  return { from, to, label };
+}
+
+function buildCabinetDailySeries(from, to) {
+  if (!from || !to) return [];
+  if (state.brand && DATA.sku_series?.available) {
+    const nms = brandNmIds();
+    const byDate = {};
+    for (const nm of nms || []) {
+      const row = DATA.sku_series.skus[String(nm)];
+      if (!row?.days) continue;
+      for (const [d, v] of Object.entries(row.days)) {
+        if (d < from || d > to) continue;
+        const r = byDate[d] || { date: d, revenue: 0, sales: 0, ad: 0, drr: 0 };
+        r.revenue += v.r || 0;
+        r.sales += v.s || 0;
+        r.ad += v.ad || 0;
+        byDate[d] = r;
+      }
+    }
+    return Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date)).map(r => ({
+      ...r,
+      drr: r.revenue ? Math.round(r.ad / r.revenue * 1000) / 10 : 0,
+    }));
+  }
+  return (DATA.daily?.daily || []).filter(r => r.date >= from && r.date <= to);
+}
+
+function updateFilterStateLabel() {
+  const el = document.getElementById('filterStateLabel');
+  const b = periodBounds();
+  if (el) el.textContent = b ? `Показано: ${b.label}` : '';
 }
 
 function prevPeriodRange(from, to) {
@@ -468,7 +511,24 @@ function buildAdsForPeriod() {
   let dailyChart = filterDailyByPeriod(a.daily || [], from, to);
   let cab;
 
-  if (dailyChart.length) {
+  if (state.brand) {
+    const bs = sumSkuPeriodBrand(from, to) || { ad: 0, revenue: 0, orders: 0, sales: 0 };
+    dailyChart = buildCabinetDailySeries(from, to).map(r => ({
+      date: r.date,
+      spend: r.ad,
+      views: 0,
+      clicks: 0,
+      orders: 0,
+    }));
+    cab = aggAdMetrics({
+      spend: bs.ad,
+      views: 0,
+      clicks: 0,
+      orders: 0,
+      atbs: 0,
+      revenue: bs.revenue,
+    });
+  } else if (dailyChart.length) {
     cab = sumAdDailyRows(dailyChart);
   } else {
     const drows = filterDailyByPeriod(DATA.daily?.daily || [], from, to);
@@ -478,12 +538,14 @@ function buildAdsForPeriod() {
     dailyChart = drows.map(r => ({ date: r.date, spend: r.ad || 0 }));
   }
 
-  const revCab = filterDailyByPeriod(DATA.daily?.daily || [], from, to)
-    .reduce((s, r) => s + (r.revenue || 0), 0);
-  if (revCab) {
-    cab.revenue = revCab;
-    cab.drr = cab.spend ? Math.round(cab.spend / revCab * 1000) / 10 : null;
-    cab.roas = cab.spend ? Math.round(revCab / cab.spend * 1000) / 10 : null;
+  if (!state.brand) {
+    const revCab = filterDailyByPeriod(DATA.daily?.daily || [], from, to)
+      .reduce((s, r) => s + (r.revenue || 0), 0);
+    if (revCab) {
+      cab.revenue = revCab;
+      cab.drr = cab.spend ? Math.round(cab.spend / revCab * 1000) / 10 : null;
+      cab.roas = cab.spend ? Math.round(revCab / cab.spend * 1000) / 10 : null;
+    }
   }
 
   const adSkuMeta = {};
@@ -547,19 +609,26 @@ function buildAdsForPeriod() {
         fallback: false,
       };
     }
-    return {
-      ...c,
-      spend: c.spend_w1 || 0,
-      views: c.views_w1 || 0,
-      clicks: c.clicks_w1 || 0,
-      orders: c.orders_w1 || 0,
-      ctr: c.ctr_w1,
-      cpc: c.cpc_w1,
-      cpo: c.cpo_w1,
-      drr: c.drr_w1,
-      fallback: true,
-    };
-  }).filter(c => c.spend > 0).filter(c => !state.brand || brandOf(c) === state.brand).sort((x, y) => y.spend - x.spend);
+    if (c.nm_id) {
+      const cur = sumSkuPeriod(c.nm_id, from, to);
+      if (!cur.ad) return null;
+      const rev = cur.revenue;
+      return {
+        ...c,
+        spend: Math.round(cur.ad),
+        views: 0,
+        clicks: 0,
+        orders: cur.orders,
+        ctr: null,
+        cpc: null,
+        cpo: cur.orders ? Math.round(cur.ad / cur.orders) : null,
+        drr: rev && cur.ad ? Math.round(cur.ad / rev * 1000) / 10 : null,
+        fallback: false,
+      };
+    }
+    return null;
+  }).filter(Boolean).filter(c => c.spend > 0)
+    .filter(c => !state.brand || brandOf(c) === state.brand).sort((x, y) => y.spend - x.spend);
 
   const ep = buildEconomicsForPeriod();
   const econMap = {};
@@ -901,11 +970,13 @@ function renderToday() {
       <div class="hint">${DATA.meta.plan_sku} SKU</div></div>`;
 
   const all = d.daily || [];
-  const revRows = all.slice(-30);
-  const drrRows = all.slice(-7);
-  document.getElementById('chartRevTag').textContent = '30 дней';
-  document.getElementById('chartDrrTag').textContent = '7 дней';
-  drawLineChart(document.getElementById('chartRevenue'), revRows, ['revenue', 'sales'], ['#2563eb', '#94a3b8']);
+  const bounds = periodBounds();
+  const chartRows = bounds ? buildCabinetDailySeries(bounds.from, bounds.to) : all.slice(-30);
+  const drrRows = chartRows.length > 7 ? chartRows.slice(-7) : chartRows;
+  const chartLabel = bounds?.label || '30 дней';
+  document.getElementById('chartRevTag').textContent = chartLabel;
+  document.getElementById('chartDrrTag').textContent = chartLabel;
+  drawLineChart(document.getElementById('chartRevenue'), chartRows, ['revenue', 'sales'], ['#2563eb', '#94a3b8']);
   drawBarChart(document.getElementById('chartDrr'), drrRows, 'drr', r => r.drr > 15 ? '#dc2626' : '#2563eb');
 
   const allFocus = buildFocusForPeriod();
@@ -1123,6 +1194,7 @@ function buildStrScored() {
   const [pFrom, pTo] = prevPeriodRange(bounds.from, bounds.to);
   const rows = [];
   for (const row of Object.values(DATA.sku_series.skus)) {
+    if (state.brand && brandOf(row) !== state.brand) continue;
     const cur = sumSkuPeriod(row.nm_id, bounds.from, bounds.to);
     const prev = sumSkuPeriod(row.nm_id, pFrom, pTo);
     if (prev.orders < 3 && cur.orders < 2) continue;
@@ -1293,10 +1365,17 @@ function renderAds() {
   const ap = buildAdsForPeriod();
   const a = DATA.ads_detail || {};
   const e = DATA.economics || {};
-  if (!ap) return;
-
-  const { bounds, cabinet: c, dailyChart, skus, campaigns, adBleed, unmapped } = ap;
-  const pl = bounds.label;
+  const bounds = periodBounds();
+  const pl = bounds?.label || '—';
+  if (!ap) {
+    document.getElementById('adsKpi').innerHTML = '<p class="note">Нет данных за период</p>';
+    document.getElementById('adsNote').textContent = '';
+    document.querySelector('#tableAds tbody').innerHTML = '<tr><td colspan="14">—</td></tr>';
+    document.querySelector('#tableCampaigns tbody').innerHTML = '<tr><td colspan="11">—</td></tr>';
+    document.querySelector('#tableAdBleed tbody').innerHTML = '<tr><td colspan="8">—</td></tr>';
+    return;
+  }
+  const { cabinet: c, dailyChart, skus, campaigns, adBleed, unmapped } = ap;
   const hasFs = ap.has_fullstats;
   const ep = buildEconomicsForPeriod();
   const econMap = {};
@@ -1398,6 +1477,7 @@ function whBestCell(s) {
 function renderStock() {
   const m = DATA.meta;
   const target = m.target_days || 35;
+  const urgent = filterBrand(DATA.urgent || []);
   document.getElementById('stockKpi').innerHTML = `
     <div class="kpi-card"><div class="label">Запас кабинета</div>
       <div class="value">${m.cabinet_days_now || '—'}<span style="font-size:.85rem"> дн</span></div>
@@ -1405,7 +1485,7 @@ function renderStock() {
     <div class="kpi-card"><div class="label">К отгрузке</div>
       <div class="value">${fmt(m.plan_batch)}</div><div class="hint">${m.plan_sku} SKU</div></div>
     <div class="kpi-card"><div class="label">Срочно OOS/дефицит</div>
-      <div class="value z-red">${m.urgent_count || 0}</div></div>
+      <div class="value z-red">${state.brand ? urgent.length : (m.urgent_count || 0)}</div></div>
     <div class="kpi-card"><div class="label">ИЛ средний</div>
       <div class="value">${m.localization_avg ? (m.localization_avg * 100).toFixed(0) + '%' : '—'}</div></div>`;
   const tgtEl = document.getElementById('targetDaysNote');
@@ -1413,7 +1493,7 @@ function renderStock() {
   if (tgtEl) tgtEl.textContent = target;
   if (plechoEl) plechoEl.textContent = m.plecho_days || 20;
 
-  document.querySelector('#tableUrgent tbody').innerHTML = (DATA.urgent || []).map(s => `<tr>
+  document.querySelector('#tableUrgent tbody').innerHTML = urgent.map(s => `<tr>
     <td><strong>${s.sku || s.nm_id}</strong></td>
     <td class="num">${s.stock}</td><td class="num">${s.sold_30d}</td>
     <td class="num">${turnoverCell(s.days_now, target)}</td>
@@ -1470,12 +1550,31 @@ const TITLES = { today: 'Сегодня', focus: 'Фокус', rnp: 'Динам�
   ads: 'Реклама', stock: 'Остатки / запас', str: 'STR', plan: 'Отгрузка', warehouses: 'Склады',
   funnel: 'Воронка', stop: 'Стоп' };
 
+function safeRender(fn, name) {
+  try {
+    fn();
+  } catch (e) {
+    console.error('render failed:', name, e);
+  }
+}
+
 function render() {
   if (!DATA) return;
   document.getElementById('pageTitle').textContent = TITLES[state.tab] || 'WB Manager';
+  updateFilterStateLabel();
+  updateRangeLabel();
   renderGuides();
-  renderToday(); renderFocus(); renderRnp(); renderStr(); renderFunnel();
-  renderMinus(); renderPlan(); renderAds(); renderStock(); renderWarehouses(); renderStop();
+  safeRender(renderToday, 'today');
+  safeRender(renderFocus, 'focus');
+  safeRender(renderRnp, 'rnp');
+  safeRender(renderStr, 'str');
+  safeRender(renderFunnel, 'funnel');
+  safeRender(renderMinus, 'minus');
+  safeRender(renderPlan, 'plan');
+  safeRender(renderAds, 'ads');
+  safeRender(renderStock, 'stock');
+  safeRender(renderWarehouses, 'warehouses');
+  safeRender(renderStop, 'stop');
 }
 
 function syncDatesFromPeriod() {
@@ -1518,6 +1617,7 @@ document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
     btn.classList.add('active');
     document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
     document.getElementById('pageTitle').textContent = TITLES[state.tab] || 'WB Manager';
+    render();
   });
 });
 
@@ -1526,6 +1626,7 @@ document.querySelectorAll('.pill').forEach(btn => {
     if (btn.dataset.period === 'custom') {
       state.period = 'custom';
       document.querySelectorAll('.pill').forEach(b => b.classList.toggle('active', b.dataset.period === 'custom'));
+      if (state.dateFrom && state.dateTo) render();
       return;
     }
     setPeriod(btn.dataset.period);
