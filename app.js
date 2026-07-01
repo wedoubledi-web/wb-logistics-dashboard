@@ -202,7 +202,7 @@ function renderGuides() {
     '1. Слив — минус + реклама → стоп РК',
     '2. ДРР >15% или CPO высокий → срез ставок',
     '3. Кампании без SKU — привязать артикул',
-  ], `KPI W1 + графики 30д · fullstats API`);
+  ], `KPI и таблицы за ${pl} · fullstats API`);
   setGuide('stock', 'Остатки и запас', [
     '1. Красная таблица — срочно, мало дней запаса',
     '2. «Куда везти» — топ складов по отгрузке',
@@ -336,6 +336,187 @@ function buildEconomicsForPeriod() {
     zero_sales,
     has_costs: e.has_costs,
     costs_loaded: e.costs_loaded,
+  };
+}
+
+function filterDailyByPeriod(rows, from, to) {
+  if (!rows?.length || !from || !to) return [];
+  return rows.filter(r => r.date >= from && r.date <= to);
+}
+
+function sumAdDailyRows(rows) {
+  const m = { spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0 };
+  for (const r of rows) {
+    m.spend += r.spend || 0;
+    m.views += r.views || 0;
+    m.clicks += r.clicks || 0;
+    m.orders += r.orders || 0;
+    m.atbs += r.atbs || 0;
+  }
+  return aggAdMetrics(m);
+}
+
+function aggAdMetrics(m) {
+  const spend = m.spend || 0;
+  const views = m.views || 0;
+  const clicks = m.clicks || 0;
+  const orders = m.orders || 0;
+  const atbs = m.atbs || 0;
+  const revenue = m.revenue || 0;
+  return {
+    spend: Math.round(spend),
+    views, clicks, orders, atbs,
+    revenue,
+    ctr: views ? Math.round(clicks / views * 10000) / 100 : null,
+    cpc: clicks ? Math.round(spend / clicks * 100) / 100 : null,
+    cpm: views ? Math.round(spend / views * 100000) / 100 : null,
+    cr: clicks ? Math.round(orders / clicks * 10000) / 100 : null,
+    cpo: orders ? Math.round(spend / orders * 100) / 100 : null,
+    roas: spend && revenue ? Math.round(revenue / spend * 1000) / 10 : null,
+    drr: revenue && spend ? Math.round(spend / revenue * 1000) / 10 : null,
+  };
+}
+
+function buildAdsForPeriod() {
+  const bounds = periodBounds();
+  const a = DATA.ads_detail || {};
+  if (!bounds) return null;
+
+  const { from, to } = bounds;
+  let dailyChart = filterDailyByPeriod(a.daily || [], from, to);
+  let cab;
+
+  if (dailyChart.length) {
+    cab = sumAdDailyRows(dailyChart);
+  } else {
+    const drows = filterDailyByPeriod(DATA.daily?.daily || [], from, to);
+    const spend = drows.reduce((s, r) => s + (r.ad || 0), 0);
+    const revenue = drows.reduce((s, r) => s + (r.revenue || 0), 0);
+    cab = aggAdMetrics({ spend, views: 0, clicks: 0, orders: 0, atbs: 0, revenue });
+    dailyChart = drows.map(r => ({ date: r.date, spend: r.ad || 0 }));
+  }
+
+  const revCab = filterDailyByPeriod(DATA.daily?.daily || [], from, to)
+    .reduce((s, r) => s + (r.revenue || 0), 0);
+  if (revCab) {
+    cab.revenue = revCab;
+    cab.drr = cab.spend ? Math.round(cab.spend / revCab * 1000) / 10 : null;
+    cab.roas = cab.spend ? Math.round(revCab / cab.spend * 1000) / 10 : null;
+  }
+
+  const adSkuMeta = {};
+  (a.skus || []).forEach(s => { adSkuMeta[s.nm_id] = s; });
+
+  const skus = [];
+  const pushSku = (nmId, skuName, dailyRows, meta = {}) => {
+    const filtered = filterDailyByPeriod(dailyRows || [], from, to);
+    let metrics;
+    if (filtered.length) {
+      metrics = sumAdDailyRows(filtered);
+    } else {
+      const cur = sumSkuPeriod(nmId, from, to);
+      if (!cur.ad) return;
+      metrics = aggAdMetrics({
+        spend: cur.ad, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: cur.revenue,
+      });
+    }
+    const cur = sumSkuPeriod(nmId, from, to);
+    if (cur.revenue) {
+      metrics.revenue = cur.revenue;
+      metrics.drr = metrics.spend ? Math.round(metrics.spend / cur.revenue * 1000) / 10 : null;
+      metrics.roas = metrics.spend ? Math.round(cur.revenue / metrics.spend * 1000) / 10 : null;
+    }
+    if (!metrics.spend && !metrics.views) return;
+    skus.push({
+      nm_id: nmId,
+      sku: skuName,
+      campaigns_count: meta.campaigns_count,
+      ...metrics,
+    });
+  };
+
+  if (DATA.sku_series?.available) {
+    for (const row of Object.values(DATA.sku_series.skus)) {
+      const adRow = adSkuMeta[row.nm_id];
+      if (adRow) pushSku(row.nm_id, row.sku || adRow.sku, adRow.daily, { campaigns_count: adRow.campaigns_count });
+      else pushSku(row.nm_id, row.sku, null);
+    }
+  } else {
+    (a.skus || []).forEach(s => pushSku(s.nm_id, s.sku, s.daily, { campaigns_count: s.campaigns_count }));
+  }
+  skus.sort((x, y) => y.spend - x.spend);
+
+  const campaigns = (a.campaigns || DATA.economics?.campaigns || []).map(c => {
+    const filtered = filterDailyByPeriod(c.daily || [], from, to);
+    if (filtered.length) {
+      const m = sumAdDailyRows(filtered);
+      const rev = c.nm_id ? sumSkuPeriod(c.nm_id, from, to).revenue : 0;
+      return {
+        ...c,
+        spend: m.spend,
+        views: m.views,
+        clicks: m.clicks,
+        orders: m.orders,
+        ctr: m.ctr,
+        cpc: m.cpc,
+        cpo: m.cpo,
+        drr: rev && m.spend ? Math.round(m.spend / rev * 1000) / 10 : null,
+        fallback: false,
+      };
+    }
+    return {
+      ...c,
+      spend: c.spend_w1 || 0,
+      views: c.views_w1 || 0,
+      clicks: c.clicks_w1 || 0,
+      orders: c.orders_w1 || 0,
+      ctr: c.ctr_w1,
+      cpc: c.cpc_w1,
+      cpo: c.cpo_w1,
+      drr: c.drr_w1,
+      fallback: true,
+    };
+  }).filter(c => c.spend > 0).sort((x, y) => y.spend - x.spend);
+
+  const ep = buildEconomicsForPeriod();
+  const econMap = {};
+  (ep?.minus || []).concat(ep?.zero_sales || []).forEach(s => { econMap[s.nm_id] = s; });
+  const adBleed = (ep?.minus || []).filter(s => s.ad > 200).map(s => {
+    const adRow = adSkuMeta[s.nm_id];
+    const filtered = adRow ? filterDailyByPeriod(adRow.daily || [], from, to) : [];
+    const adM = filtered.length ? sumAdDailyRows(filtered) : aggAdMetrics({ spend: s.ad, views: 0, clicks: 0, orders: 0, atbs: 0 });
+    const cur = sumSkuPeriod(s.nm_id, from, to);
+    return {
+      ...s,
+      views: adM.views,
+      ctr: adM.ctr,
+      drr: cur.drr,
+      roas: adM.spend && cur.revenue ? Math.round(cur.revenue / adM.spend * 1000) / 10 : null,
+    };
+  });
+
+  const unmapped = (a.unmapped || []).map(c => {
+    const filtered = filterDailyByPeriod(c.daily || [], from, to);
+    const spend = filtered.length
+      ? filtered.reduce((s, r) => s + (r.spend || 0), 0)
+      : (c.spend_30d || 0);
+    return { ...c, spend };
+  }).filter(c => c.spend > 0);
+
+  const meta = a.cabinet || {};
+  return {
+    bounds,
+    cabinet: cab,
+    dailyChart,
+    skus,
+    campaigns,
+    adBleed,
+    unmapped,
+    has_fullstats: a.has_fullstats,
+    note: a.note,
+    campaigns_total: meta.campaigns_total || campaigns.length,
+    campaigns_active: meta.campaigns_active,
+    fallback: campaigns.some(c => c.fallback) && !dailyChart.length,
   };
 }
 
@@ -1012,86 +1193,96 @@ function renderMinus() {
 }
 
 function renderAds() {
-  const e = DATA.economics || {};
+  const ap = buildAdsForPeriod();
   const a = DATA.ads_detail || {};
-  const c = a.cabinet || e.cabinet || {};
-  const hasFs = a.has_fullstats;
-  const adSkuMap = {};
-  (a.skus || []).forEach(s => { adSkuMap[s.nm_id] = s; });
+  const e = DATA.economics || {};
+  if (!ap) return;
+
+  const { bounds, cabinet: c, dailyChart, skus, campaigns, adBleed, unmapped } = ap;
+  const pl = bounds.label;
+  const hasFs = ap.has_fullstats;
+  const ep = buildEconomicsForPeriod();
+  const econMap = {};
+  (ep?.minus || []).concat(ep?.zero_sales || []).forEach(s => { econMap[s.nm_id] = s; });
+  (e.skus || []).forEach(s => { if (!econMap[s.nm_id]) econMap[s.nm_id] = s; });
+
   document.getElementById('adsKpi').innerHTML = `
-    <div class="kpi-card"><div class="label">Реклама W1</div><div class="value">${rub(c.spend_w1 || e.cabinet?.ad_w1)}</div>
-      <div class="hint">ДРР ${c.drr_w1 != null ? c.drr_w1 + '%' : '—'}</div></div>
-    <div class="kpi-card"><div class="label">Показы W1</div><div class="value">${num(c.views_w1)}</div>
-      <div class="hint">клики ${num(c.clicks_w1)}</div></div>
-    <div class="kpi-card"><div class="label">CTR W1</div><div class="value">${pct2(c.ctr_w1)}</div>
-      <div class="hint">CPC ${rubDec(c.cpc_w1)} · CPM ${rubDec(c.cpm_w1)}</div></div>
-    <div class="kpi-card"><div class="label">Заказы W1</div><div class="value">${num(c.orders_w1)}</div>
-      <div class="hint">корзины ${num(c.atbs_w1)} · CR ${pct2(c.cr_w1)}</div></div>
-    <div class="kpi-card"><div class="label">ROAS W1</div><div class="value">${c.roas_w1 != null ? c.roas_w1 + '%' : '—'}</div>
-      <div class="hint">CPO ${rubDec(c.cpo_w1)}</div></div>
-    <div class="kpi-card"><div class="label">7 / 30 дней</div><div class="value">${rub(c.spend_7d)}</div>
-      <div class="hint">30д ${rub(c.spend_30d)}</div></div>
-    <div class="kpi-card"><div class="label">Кампаний</div><div class="value">${c.campaigns_total || (e.campaigns||[]).length}</div>
-      <div class="hint">активных ${c.campaigns_active ?? '—'}</div></div>
-    <div class="kpi-card"><div class="label">Слив</div><div class="value z-red">${(e.ad_bleed||[]).length}</div></div>`;
-  document.getElementById('adsNote').textContent = a.note || 'Данные из списаний WB /adv/v1/upd';
-  if (a.daily?.length) {
+    <div class="kpi-card"><div class="label">Реклама · ${pl}</div><div class="value">${rub(c.spend)}</div>
+      <div class="hint">ДРР ${c.drr != null ? c.drr + '%' : '—'}</div></div>
+    <div class="kpi-card"><div class="label">Показы</div><div class="value">${num(c.views)}</div>
+      <div class="hint">клики ${num(c.clicks)}</div></div>
+    <div class="kpi-card"><div class="label">CTR</div><div class="value">${pct2(c.ctr)}</div>
+      <div class="hint">CPC ${rubDec(c.cpc)} · CPM ${rubDec(c.cpm)}</div></div>
+    <div class="kpi-card"><div class="label">Заказы</div><div class="value">${num(c.orders)}</div>
+      <div class="hint">корзины ${num(c.atbs)} · CR ${pct2(c.cr)}</div></div>
+    <div class="kpi-card"><div class="label">ROAS</div><div class="value">${c.roas != null ? c.roas + '%' : '—'}</div>
+      <div class="hint">CPO ${rubDec(c.cpo)}</div></div>
+    <div class="kpi-card"><div class="label">Выручка</div><div class="value">${rub(c.revenue)}</div>
+      <div class="hint">за период</div></div>
+    <div class="kpi-card"><div class="label">Кампаний</div><div class="value">${ap.campaigns_total}</div>
+      <div class="hint">активных ${ap.campaigns_active ?? '—'}</div></div>
+    <div class="kpi-card"><div class="label">Слив</div><div class="value z-red">${adBleed.length}</div></div>`;
+
+  const chartTag = document.getElementById('chartAdDailyTag');
+  const viewsTag = document.getElementById('chartAdViewsTag');
+  if (chartTag) chartTag.textContent = pl;
+  if (viewsTag) viewsTag.textContent = pl;
+
+  const noteExtra = ap.fallback ? ' · нет дневных рядов за период — часть таблиц по W1' : '';
+  document.getElementById('adsNote').textContent = (ap.note || a.note || 'Данные из списаний WB /adv/v1/upd') + noteExtra;
+
+  if (dailyChart.length) {
     drawBarChart(document.getElementById('chartAdDaily'),
-      a.daily.map(d => ({ date: d.date, drr: d.spend })), 'drr', () => '#2563eb');
+      dailyChart.map(d => ({ date: d.date, drr: d.spend })), 'drr', () => '#2563eb');
     const viewsCard = document.getElementById('adsStatsChartCard');
-    if (hasFs && a.daily.some(d => d.views)) {
+    if (hasFs && dailyChart.some(d => d.views)) {
       viewsCard.style.display = '';
-      drawDualBarChart(document.getElementById('chartAdViews'), a.daily);
+      drawDualBarChart(document.getElementById('chartAdViews'), dailyChart);
     } else viewsCard.style.display = 'none';
   }
-  document.querySelector('#tableAdBleed tbody').innerHTML = (e.ad_bleed || []).map(s => {
-    const st = adSkuMap[s.nm_id] || {};
-    return `<tr>
-    <td>${s.sku || s.nm_id}</td><td class="num">${rub(s.ad_w1)}</td>
-    <td class="num">${num(st.views_w1)}</td><td class="num">${pct2(st.ctr_w1)}</td>
-    <td class="num z-red">${rub(s.profit_w1)}</td><td class="num">${s.drr_w1}%</td>
-    <td class="num">${s.roas_w1 ? s.roas_w1+'%' : '—'}</td>
-    <td class="z-red">${s.action}</td></tr>`;
-  }).join('') || '<tr><td colspan="8">—</td></tr>';
-  const camps = a.campaigns || e.campaigns || [];
-  document.querySelector('#tableCampaigns tbody').innerHTML = camps.slice(0, 40).map(c => `<tr>
-    <td><span style="font-size:.72rem;color:var(--muted)">#${c.advert_id || '—'}</span><br>${(c.camp||'').slice(0,35)}</td>
-    <td>${c.sku || c.nm_id || '—'}</td>
-    <td class="num">${rub(c.spend_w1)}</td>
-    <td class="num">${num(c.views_w1)}</td><td class="num">${num(c.clicks_w1)}</td>
-    <td class="num">${pct2(c.ctr_w1)}</td><td class="num">${rubDec(c.cpc_w1)}</td>
-    <td class="num">${num(c.orders_w1)}</td>
-    <td class="num">${c.drr_w1 != null ? c.drr_w1+'%' : '—'}</td>
-    <td>${c.type || '—'}</td><td>${c.status || '—'}</td></tr>`).join('') || '<tr><td colspan="11">—</td></tr>';
-  const econMap = {};
-  (e.skus || []).forEach(s => { econMap[s.nm_id] = s; });
-  const adSkus = a.skus?.length ? a.skus : null;
-  const list = qfilter(filterBrand(
-    adSkus || DATA.skus_ads || DATA.skus_all.filter(s => s.ad_spend_30d > 0 || s.ad_w1 > 0)
-  ), 'ads').sort((a, b) => (b.spend_30d || b.ad_spend_30d || b.ad_w1 || 0) - (a.spend_30d || a.ad_spend_30d || a.ad_w1 || 0));
+
+  document.querySelector('#tableAdBleed tbody').innerHTML = adBleed.map(s => `<tr>
+    <td>${s.sku || s.nm_id}</td><td class="num">${rub(s.ad)}</td>
+    <td class="num">${num(s.views)}</td><td class="num">${pct2(s.ctr)}</td>
+    <td class="num z-red">${rub(s.profit)}</td><td class="num">${s.drr != null ? s.drr + '%' : '—'}</td>
+    <td class="num">${s.roas != null ? s.roas + '%' : '—'}</td>
+    <td class="z-red">${s.action || econAction(s)}</td></tr>`).join('') || '<tr><td colspan="8">—</td></tr>';
+
+  document.querySelector('#tableCampaigns tbody').innerHTML = campaigns.slice(0, 40).map(camp => `<tr>
+    <td><span style="font-size:.72rem;color:var(--muted)">#${camp.advert_id || '—'}</span><br>${(camp.camp||'').slice(0,35)}</td>
+    <td>${camp.sku || camp.nm_id || '—'}</td>
+    <td class="num">${rub(camp.spend)}</td>
+    <td class="num">${num(camp.views)}</td><td class="num">${num(camp.clicks)}</td>
+    <td class="num">${pct2(camp.ctr)}</td><td class="num">${rubDec(camp.cpc)}</td>
+    <td class="num">${num(camp.orders)}</td>
+    <td class="num">${camp.drr != null ? camp.drr + '%' : '—'}</td>
+    <td>${camp.type || '—'}</td><td>${camp.status || '—'}</td></tr>`).join('') || '<tr><td colspan="11">—</td></tr>';
+
+  const list = qfilter(filterBrand(skus), 'ads').sort((a, b) => b.spend - a.spend);
   document.querySelector('#tableAds tbody').innerHTML = list.map(s => {
     const ec = econMap[s.nm_id] || {};
+    const profit = ec.profit ?? ec.profit_w1;
     const rec = ec.is_minus || s.stop_ads ? '<span class="z-red">СТОП</span>'
-      : (ec.drr_w1 > 12 || s.drr_w1 > 12) ? '<span class="z-yellow">Срез</span>' : '<span class="z-green">Ок</span>';
+      : (s.drr > 12 || ec.drr > 12) ? '<span class="z-yellow">Срез</span>' : '<span class="z-green">Ок</span>';
     return `<tr><td>${s.sku || s.nm_id}</td>
-      <td class="num">${rub(s.spend_w1 ?? ec.ad_w1)}</td>
-      <td class="num">${num(s.views_w1)}</td><td class="num">${num(s.clicks_w1)}</td>
-      <td class="num">${pct2(s.ctr_w1)}</td><td class="num">${rubDec(s.cpc_w1)}</td>
-      <td class="num">${num(s.orders_w1)}</td><td class="num">${rubDec(s.cpo_w1)}</td>
-      <td class="num">${rub(s.revenue_w1 ?? ec.revenue_w1)}</td>
-      <td class="num">${s.drr_w1 ?? ec.drr_w1 ? (s.drr_w1 ?? ec.drr_w1)+'%' : '—'}</td>
-      <td class="num">${s.roas_w1 != null ? s.roas_w1+'%' : '—'}</td>
+      <td class="num">${rub(s.spend)}</td>
+      <td class="num">${num(s.views)}</td><td class="num">${num(s.clicks)}</td>
+      <td class="num">${pct2(s.ctr)}</td><td class="num">${rubDec(s.cpc)}</td>
+      <td class="num">${num(s.orders)}</td><td class="num">${rubDec(s.cpo)}</td>
+      <td class="num">${rub(s.revenue)}</td>
+      <td class="num">${s.drr != null ? s.drr + '%' : '—'}</td>
+      <td class="num">${s.roas != null ? s.roas + '%' : '—'}</td>
       <td class="num">${s.campaigns_count ?? '—'}</td>
-      <td class="num" style="color:${(ec.profit_w1||0)<0?'var(--red)':'inherit'}">${rub(ec.profit_w1)}</td>
+      <td class="num" style="color:${(profit || 0) < 0 ? 'var(--red)' : 'inherit'}">${rub(profit)}</td>
       <td>${rec}</td></tr>`;
-  }).join('');
-  const unmapped = a.unmapped || [];
+  }).join('') || '<tr><td colspan="14">—</td></tr>';
+
   const umCard = document.getElementById('unmappedCard');
   if (unmapped.length) {
     umCard.style.display = 'block';
     document.querySelector('#tableUnmapped tbody').innerHTML = unmapped.map(c => `<tr>
       <td>${c.advert_id}</td><td>${(c.camp||'').slice(0,50)}</td>
-      <td class="num">${rub(c.spend_30d)}</td></tr>`).join('');
+      <td class="num">${rub(c.spend)}</td></tr>`).join('');
   } else umCard.style.display = 'none';
 }
 
