@@ -4,76 +4,155 @@ let parsed = null;
 
 const NORMS = { ctr: 6, cart_cr: 23, order_cr: 70, buyout: 80 };
 
-const METRIC_PATTERNS = [
-  { key: 'ctr', re: /ctr|кликабель|переход.*показ|клик.*%/i },
-  { key: 'views', re: /показ|просмотр/i },
-  { key: 'clicks', re: /переход|клик(?!аб)|перешли/i },
-  { key: 'cart_cr', re: /корзин|cr\s*1|в корзину|добавлен/i },
-  { key: 'order_cr', re: /заказ|cr\s*2|конверс.*заказ/i },
-  { key: 'buyout', re: /выкуп/i },
-  { key: 'price', re: /средн.*цен|цен[аы]|price/i },
-  { key: 'orders', re: /заказ.*шт|кол.*заказ/i },
-  { key: 'rating', re: /рейтинг|оценк/i },
-  { key: 'reviews', re: /отзыв/i },
-  { key: 'position', re: /позиц/i },
-];
-
 const NM_RE = /\b(\d{7,12})\b/;
 
 function num(v) {
   if (v == null || v === '') return null;
-  const s = String(v).replace(/\s/g, '').replace(',', '.').replace('%', '');
+  const s = String(v).replace(/\s/g, '').replace(',', '.').replace(/%/g, '');
   const n = parseFloat(s);
   return isNaN(n) ? null : n;
 }
 
+const METRIC_PATTERNS = [
+  { key: 'ctr', re: /^ctr$|ctr\s*%|кликабельность/i },
+  { key: 'views', re: /^показы$|количество показов|просмотр/i },
+  { key: 'clicks', re: /перешли в карточк|переход.*карточк|количество переходов|перешли/i },
+  { key: 'cart_cr', re: /конверс.*корзин|cr\s*1|в корзину.*%/i },
+  { key: 'order_cr', re: /конверс.*заказ|cr\s*2/i },
+  { key: 'buyout', re: /процент выкупа|доля выкупа|выкуп\s*%/i },
+  { key: 'price', re: /медианн.*цен|цен.*скидк|минимальн.*цен|максимальн.*цен|средн.*цен/i },
+  { key: 'orders', re: /заказали|заказов|количество заказ|товаров заказ/i },
+  { key: 'rating', re: /рейтинг/i },
+  { key: 'reviews', re: /количество отзыв|отзывов/i },
+  { key: 'position', re: /позиц.*поиск|средн.*позиц/i },
+];
+
+const SKIP_LABEL = /^(артикул|предмет|дата|сервис|назван|бренд|категор|номенклатур|период|сравнен|товар$|наимен)/i;
+const HEADER_LABEL = /^(показател|параметр|метрик|показатель|название)/i;
+
+function normalizeRows(rows) {
+  return rows
+    .map(r => (Array.isArray(r) ? r : Object.values(r)).map(c => (c == null ? '' : c)))
+    .filter(r => r.some(c => String(c).trim()));
+}
+
 function matchMetric(label) {
   const t = String(label || '').trim();
+  if (!t || SKIP_LABEL.test(t)) return null;
   for (const m of METRIC_PATTERNS) if (m.re.test(t)) return m.key;
   return null;
 }
 
-function cardId(header) {
+function cardId(header, articleIds, idx) {
+  if (articleIds?.[idx]) return articleIds[idx];
   const m = NM_RE.exec(String(header));
-  return m ? m[1] : String(header).trim().slice(0, 40);
+  if (m) return m[1];
+  const h = String(header || '').trim();
+  return h ? h.slice(0, 60) : `col_${idx + 1}`;
 }
 
-function parseSheet(rows) {
+function findHeaderRow(rows) {
+  let best = { idx: 0, score: 0 };
+  for (let i = 0; i < Math.min(rows.length, 40); i++) {
+    const row = rows[i].map(c => String(c ?? '').trim());
+    const first = row[0];
+    if (/^артикул/i.test(first)) continue;
+    let score = 0;
+    if (HEADER_LABEL.test(first)) score += 50;
+    const nmInRow = row.slice(1).filter(c => NM_RE.test(c)).length;
+    const metricHeaders = row.slice(1).filter(c => matchMetric(c)).length;
+    const metricInCol = rows.slice(i + 1, i + 25).filter(r => matchMetric(r[0])).length;
+    score += nmInRow + metricHeaders * 2 + metricInCol;
+    if (score > best.score) best = { idx: i, score };
+  }
+  return best.idx;
+}
+
+function findArticleIds(rows, headerIdx) {
+  for (let i = headerIdx; i < Math.min(headerIdx + 20, rows.length); i++) {
+    const label = String(rows[i][0] ?? '').toLowerCase();
+    if (!/артикул|nm\s*id|nmid/i.test(label)) continue;
+    return rows[i].slice(1).map(v => {
+      const m = NM_RE.exec(String(v));
+      return m ? m[1] : null;
+    });
+  }
+  return null;
+}
+
+function parseSheet(rawRows) {
+  const rows = normalizeRows(rawRows);
   if (!rows.length) return null;
-  // trim empty
-  while (rows.length && rows[rows.length - 1].every(c => !c)) rows.pop();
-  const headers = rows[0].map(c => String(c ?? '').trim());
-  const body = rows.slice(1);
 
-  // layout A: metrics in first column
-  const metricRows = body.filter(r => matchMetric(r[0])).length;
-  const idHeaders = headers.slice(1).filter(h => NM_RE.test(h) || h.length > 2).length;
+  const hi = findHeaderRow(rows);
+  const headers = rows[hi].map(c => String(c ?? '').trim());
+  const colStart = HEADER_LABEL.test(headers[0]) || !headers[0] ? 1 : 0;
+  const colHeaders = headers.slice(colStart);
+  const body = rows.slice(hi + 1);
+  const articleIds = findArticleIds(rows, hi);
 
-  if (metricRows >= 3 && metricRows >= body.length * 0.3) {
-    const cards = headers.slice(1).map((h, i) => ({ id: cardId(h), header: h, metrics: {} }));
+  // Layout A: metrics in first column, cards in columns
+  const metricRows = body.filter(r => matchMetric(r[colStart - 1] ?? r[0])).length;
+  if (metricRows >= 3) {
+    const cards = colHeaders.map((h, i) => ({
+      id: cardId(h, articleIds, i),
+      header: h || articleIds?.[i] || `Карточка ${i + 1}`,
+      metrics: {},
+    }));
     body.forEach(row => {
-      const mk = matchMetric(row[0]);
+      const label = row[colStart - 1] ?? row[0];
+      const mk = matchMetric(label);
       if (!mk) return;
-      row.slice(1).forEach((v, i) => {
-        if (cards[i]) cards[i].metrics[mk] = num(v);
+      row.slice(colStart).forEach((v, i) => {
+        const n = num(v);
+        if (cards[i] && n != null) cards[i].metrics[mk] = n;
       });
     });
-    return cards.filter(c => Object.keys(c.metrics).length);
+    const out = cards.filter(c => Object.values(c.metrics).some(v => v != null));
+    if (out.length) return out;
   }
 
-  // layout B: cards in first column
+  // Layout B: cards in rows, metrics in header
   const cards = [];
   body.forEach(row => {
-    const id = cardId(row[0]);
-    if (!id) return;
+    const labelCol = row[colStart - 1] ?? row[0];
+    const nmFromRow = NM_RE.exec(String(labelCol));
+    const id = nmFromRow ? nmFromRow[1] : cardId(labelCol, null, 0);
+    if (!id || SKIP_LABEL.test(String(labelCol))) return;
     const metrics = {};
-    headers.slice(1).forEach((h, i) => {
+    colHeaders.forEach((h, i) => {
       const mk = matchMetric(h);
-      if (mk) metrics[mk] = num(row[i + 1]);
+      const n = num(row[colStart + i]);
+      if (mk && n != null) metrics[mk] = n;
     });
-    if (Object.keys(metrics).length) cards.push({ id, header: row[0], metrics });
+    if (Object.values(metrics).some(v => v != null)) {
+      cards.push({ id, header: String(labelCol).trim(), metrics });
+    }
   });
   return cards.length ? cards : null;
+}
+
+function sheetScore(name) {
+  const n = name.toLowerCase();
+  if (/показател/i.test(n)) return 100;
+  if (/comparison|сравнен/i.test(n)) return 80;
+  if (/поисков|запрос/i.test(n)) return 30;
+  if (/склад|регион/i.test(n)) return 10;
+  return 50;
+}
+
+function parseWorkbook(wb) {
+  let best = null;
+  for (const name of wb.SheetNames) {
+    const sheet = wb.Sheets[name];
+    const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    const cards = parseSheet(raw);
+    if (!cards?.length) continue;
+    const score = sheetScore(name) + cards.length * 5
+      + cards.reduce((a, c) => a + Object.keys(c.metrics).length, 0);
+    if (!best || score > best.score) best = { name, cards, score };
+  }
+  return best;
 }
 
 function readFile(file) {
@@ -82,10 +161,10 @@ function readFile(file) {
     reader.onload = e => {
       try {
         const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type: 'array' });
-        const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-        resolve(parseSheet(rows));
+        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        const hit = parseWorkbook(wb);
+        if (hit) resolve({ cards: hit.cards, sheet: hit.name, sheets: wb.SheetNames });
+        else resolve({ cards: null, sheets: wb.SheetNames });
       } catch (err) { reject(err); }
     };
     reader.onerror = reject;
@@ -231,12 +310,17 @@ function analyze() {
 async function onFile(file) {
   document.getElementById('fileInfo').textContent = `Читаю ${file.name}…`;
   try {
-    parsed = await readFile(file);
-    if (!parsed || !parsed.length) {
-      document.getElementById('fileInfo').textContent = 'Не распознан формат. Убедитесь что это Excel из Jam «Сравнение карточек».';
+    const result = await readFile(file);
+    if (!result?.cards?.length) {
+      const hint = result?.sheets?.length
+        ? `Листы в файле: ${result.sheets.join(', ')}. `
+        : '';
+      document.getElementById('fileInfo').innerHTML =
+        `${hint}Не распознан формат. Нужен Excel из Jam → «Сравнение карточек» → вкладка «Показатели» → скачать XLSX.`;
       return;
     }
-    document.getElementById('fileInfo').textContent = `✓ ${file.name} · ${parsed.length} карточек · метрики: ${
+    parsed = result.cards;
+    document.getElementById('fileInfo').textContent = `✓ ${file.name} · лист «${result.sheet}» · ${parsed.length} карточек · метрики: ${
       [...new Set(parsed.flatMap(c => Object.keys(c.metrics)))].join(', ')}`;
     const sel = document.getElementById('myCard');
     sel.innerHTML = parsed.map(c => `<option value="${c.id}">${c.id} — ${c.header}</option>`).join('');
