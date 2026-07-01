@@ -3,271 +3,293 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>WB Manager — РНП</title>
+<title>WB Manager</title>
 <style>
-:root{--bg:#0c1017;--surface:#141b26;--surface2:#1c2535;--border:#2a3548;--text:#e8edf4;--muted:#8b9cb3;--accent:#5b8def;--green:#3dd68c;--yellow:#f5c542;--red:#f56565;--orange:#ed8936;--radius:12px}
+:root{
+  --bg:#f0f2f5;--surface:#fff;--surface2:#f7f8fa;--border:#e4e7ec;
+  --text:#111827;--muted:#6b7280;--accent:#2563eb;--accent-soft:#eff6ff;
+  --green:#059669;--green-bg:#ecfdf5;--yellow:#d97706;--yellow-bg:#fffbeb;
+  --red:#dc2626;--red-bg:#fef2f2;--radius:14px;--shadow:0 1px 3px rgba(0,0,0,.06);
+  --sidebar:220px;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
-.wrap{max-width:1400px;margin:0 auto;padding:18px 14px 48px}
-header{margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px}
-header h1{font-size:1.45rem;font-weight:700} header .sub{color:var(--muted);font-size:.85rem;margin-top:3px}
-.badge{font-size:.7rem;padding:4px 10px;border-radius:6px;font-weight:600}
-.badge.live{background:rgba(61,214,140,.12);color:var(--green);border:1px solid rgba(61,214,140,.3)}
-.badge.demo{background:rgba(245,197,66,.12);color:var(--yellow);border:1px solid rgba(245,197,66,.3)}
-.badge.stale{background:rgba(237,137,54,.12);color:var(--orange);border:1px solid rgba(237,137,54,.3)}
-.controls{display:flex;gap:14px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px}
-.ctrl label{font-size:.68rem;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:4px}
-.ctrl select{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:7px 11px;font-size:.85rem}
-.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:16px}
-.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
-.kpi-card .label{font-size:.68rem;color:var(--muted);text-transform:uppercase}
-.kpi-card .value{font-size:1.35rem;font-weight:700;margin-top:3px}
-.kpi-card .hint{font-size:.72rem;color:var(--muted)}
-.kpi-card.accent{border-color:var(--accent)}
-.kpi-card .delta{font-size:.78rem;font-weight:600;margin-top:2px}
-.delta.up{color:var(--green)}.delta.down{color:var(--red)}.delta.flat{color:var(--muted)}
-.tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:14px}
-.tab{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:.82rem}
-.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.app{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);padding:20px 14px;position:sticky;top:0;height:100vh;overflow:auto;flex-shrink:0}
+.logo{font-weight:800;font-size:1.05rem;margin-bottom:22px;padding:0 8px}
+.nav-group{margin-bottom:18px}
+.nav-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:0 10px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:none;background:transparent;color:var(--muted);padding:9px 10px;border-radius:10px;cursor:pointer;font-size:.88rem}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.main{flex:1;min-width:0;padding:22px 26px 48px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.topbar h1{font-size:1.55rem;font-weight:700}
+.topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill-group{display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px}
+.pill{border:none;background:transparent;padding:6px 12px;border-radius:8px;font-size:.82rem;color:var(--muted);cursor:pointer}
+.pill.active{background:var(--accent);color:#fff}
+.date-input{border:1px solid var(--border);border-radius:10px;padding:7px 11px;font-size:.85rem;background:var(--surface)}
+.badge{font-size:.72rem;padding:5px 10px;border-radius:8px;font-weight:600;white-space:nowrap}
+.badge.live{background:var(--green-bg);color:var(--green)}
+.badge.stale{background:var(--yellow-bg);color:var(--yellow)}
+.badge.demo{background:var(--surface2);color:var(--muted)}
+.hero{background:linear-gradient(135deg,#059669,#10b981);color:#fff;border-radius:var(--radius);padding:18px 22px;margin-bottom:14px;box-shadow:var(--shadow)}
+.hero .title{font-size:1.05rem;font-weight:600}
+.hero .sub{opacity:.9;font-size:.88rem;margin-top:4px}
+.semaphore{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:.88rem;box-shadow:var(--shadow)}
+.semaphore .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.semaphore.red{border-color:#fecaca;background:var(--red-bg)}.semaphore.red .dot{background:var(--red)}
+.semaphore.yellow{border-color:#fde68a;background:var(--yellow-bg)}.semaphore.yellow .dot{background:var(--yellow)}
+.semaphore.ok .dot{background:var(--green)}
+.kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:16px}
+.kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);position:relative}
+.kpi-card .label{font-size:.72rem;color:var(--muted)}
+.kpi-card .value{font-size:1.45rem;font-weight:700;margin-top:4px}
+.kpi-card .hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+.kpi-card .icon{position:absolute;top:12px;right:12px;opacity:.35;font-size:1.1rem}
+.trend{display:inline-flex;align-items:center;gap:3px;font-size:.75rem;font-weight:600;padding:2px 7px;border-radius:6px;margin-top:6px}
+.trend.up{background:#ecfdf5;color:var(--green)}.trend.down{background:#fef2f2;color:var(--red)}.trend.flat{background:var(--surface2);color:var(--muted)}
 .panel{display:none}.panel.active{display:block}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
-.card h2{font-size:.92rem;color:var(--muted);margin-bottom:10px;font-weight:600}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-@media(max-width:900px){.grid2{grid-template-columns:1fr}}
-table{width:100%;border-collapse:collapse;font-size:.8rem}
-th{text-align:left;padding:8px 7px;color:var(--muted);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);font-size:.68rem;text-transform:uppercase}
-td{padding:8px 7px;border-bottom:1px solid var(--border);vertical-align:middle}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{font-size:.9rem;font-weight:600;color:var(--text);margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:960px){.app{flex-direction:column}.sidebar{width:100%;height:auto;position:static}.grid2{grid-template-columns:1fr}}
+.chart-wrap{height:220px;position:relative}
+.chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.chart-tag{font-size:.72rem;color:var(--muted);background:var(--surface2);padding:3px 8px;border-radius:6px}
+table{width:100%;border-collapse:collapse;font-size:.82rem}
+th{text-align:left;padding:9px 8px;color:var(--muted);border-bottom:1px solid var(--border);font-size:.68rem;text-transform:uppercase;font-weight:600}
+td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:hover td{background:var(--surface2)}
 .num{text-align:right;font-variant-numeric:tabular-nums}
-.badge-s{display:inline-block;padding:2px 6px;border-radius:5px;font-size:.65rem;font-weight:600}
-.b-oos,.b-red{background:#4a1c1c;color:var(--red)}
-.b-deficit,.b-yellow{background:#4a3010;color:var(--orange)}
-.b-ok,.b-green{background:#1a3a2a;color:var(--green)}
-.b-high,.b-excess,.b-overstock{background:#2a3040;color:var(--muted)}
-.b-minus{background:#3a1a2a;color:#f687b3}
-.b-frozen{background:#2a2a30;color:var(--muted)}
+.search{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px;font-size:.85rem;background:var(--surface2)}
+.scroll{overflow:auto;max-height:58vh}
+.badge-s{display:inline-block;padding:2px 7px;border-radius:6px;font-size:.68rem;font-weight:600}
+.b-oos,.b-red{background:#fee2e2;color:var(--red)}
+.b-deficit,.b-yellow{background:#fef3c7;color:var(--yellow)}
+.b-ok,.b-green{background:#d1fae5;color:var(--green)}
+.b-high,.b-excess,.b-overstock,.b-frozen{background:#f3f4f6;color:var(--muted)}
+.b-minus{background:#fce7f3;color:#be185d}
 .z-green{color:var(--green)}.z-yellow{color:var(--yellow)}.z-red{color:var(--red)}
-.search{width:100%;padding:8px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);margin-bottom:8px;font-size:.85rem}
-.scroll{overflow:auto;max-height:65vh}
-.bar-row{display:flex;align-items:center;gap:7px;margin-bottom:7px;font-size:.8rem}
-.bar-label{width:115px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bar-track{flex:1;height:18px;background:var(--surface2);border-radius:5px;overflow:hidden}
-.bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,var(--accent),#7ba3f7)}
-.bar-fill.ship{background:linear-gradient(90deg,var(--green),#6ee7a8)}
-.bar-num{width:40px;text-align:right;font-weight:600;font-size:.78rem}
-.wh-tags{display:flex;flex-wrap:wrap;gap:3px}
-.wh-tag{background:var(--surface2);padding:2px 5px;border-radius:4px;font-size:.65rem;color:var(--muted)}
-.alert{background:#2a1a1a;border:1px solid var(--red);border-radius:var(--radius);padding:11px 14px;margin-bottom:12px;font-size:.85rem}
 .focus-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.85rem}
-.focus-item:last-child{border-bottom:none}
 .focus-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0}
 .focus-dot.critical{background:var(--red)}.focus-dot.warning{background:var(--yellow)}.focus-dot.info{background:var(--green)}
-.note{font-size:.78rem;color:var(--muted);border-left:3px solid var(--accent);padding:9px 11px;background:var(--surface2);border-radius:0 8px 8px 0;margin-top:8px}
-.compare{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;text-align:center;margin:8px 0}
-.compare .box{background:var(--surface2);border-radius:8px;padding:12px}
-.compare .arrow{color:var(--muted);font-size:1.2rem}
-footer{margin-top:24px;text-align:center;color:var(--muted);font-size:.75rem}
+.note{font-size:.78rem;color:var(--muted);border-left:3px solid var(--accent);padding:9px 12px;background:var(--surface2);border-radius:0 8px 8px 0;margin-top:8px}
+.compare{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;text-align:center}
+.compare .box{background:var(--surface2);border-radius:10px;padding:14px}
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:.8rem}
+.bar-label{width:120px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;height:16px;background:var(--surface2);border-radius:6px;overflow:hidden}
+.bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),#60a5fa)}
+.bar-fill.ship{background:linear-gradient(90deg,var(--green),#34d399)}
+.bar-num{width:42px;text-align:right;font-weight:600;font-size:.78rem}
+.wh-tags{display:flex;flex-wrap:wrap;gap:4px}
+.wh-tag{background:var(--surface2);padding:2px 6px;border-radius:5px;font-size:.65rem;color:var(--muted)}
+.ctrl select{border:1px solid var(--border);border-radius:10px;padding:7px 11px;font-size:.85rem;background:var(--surface)}
+footer{margin-top:28px;color:var(--muted);font-size:.75rem}
 </style>
 </head>
 <body>
-<div class="wrap">
-<header>
-  <div><h1>WB Manager · РНП</h1><p class="sub">Куда смотреть · минус в моменте · реклама · STR · отгрузка</p></div>
-  <span class="badge demo" id="srcBadge">загрузка…</span>
-</header>
+<div class="app">
+<aside class="sidebar">
+  <div class="logo">WB Manager</div>
+  <div class="nav-group">
+    <div class="nav-label">Обзор</div>
+    <button class="nav-item active" data-tab="today">Сегодня</button>
+    <button class="nav-item" data-tab="focus">Фокус</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Аналитика</div>
+    <button class="nav-item" data-tab="rnp">Динамика</button>
+    <button class="nav-item" data-tab="minus">Минус / P&L</button>
+    <button class="nav-item" data-tab="ads">Реклама</button>
+    <button class="nav-item" data-tab="stock">Остатки</button>
+    <button class="nav-item" data-tab="str">STR</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Логистика</div>
+    <button class="nav-item" data-tab="plan">Отгрузка</button>
+    <button class="nav-item" data-tab="warehouses">Склады</button>
+  </div>
+  <div class="nav-group">
+    <div class="nav-label">Прочее</div>
+    <button class="nav-item" data-tab="funnel">Воронка</button>
+    <button class="nav-item" data-tab="stop">Стоп</button>
+  </div>
+</aside>
 
-<div class="controls">
-  <div class="ctrl"><label>Бренд</label><select id="brandFilter"><option value="">Все</option></select></div>
+<main class="main">
+<div class="topbar">
+  <h1 id="pageTitle">Сегодня</h1>
+  <div class="topbar-actions">
+    <div class="pill-group" id="periodPills">
+      <button class="pill active" data-period="yesterday">Вчера</button>
+      <button class="pill" data-period="7d">7 дней</button>
+      <button class="pill" data-period="30d">30 дней</button>
+      <button class="pill" data-period="custom">Период</button>
+    </div>
+    <input type="date" class="date-input" id="dateFrom" title="С">
+    <input type="date" class="date-input" id="dateTo" title="По">
+    <select class="ctrl" id="brandFilter"><option value="">Все бренды</option></select>
+    <span class="badge demo" id="srcBadge">загрузка…</span>
+  </div>
 </div>
 
-<div class="kpi" id="kpiMain"></div>
-<div class="alert" id="urgentAlert" style="display:none"></div>
-
-<div class="tabs">
-  <button class="tab active" data-tab="rnp">РНП</button>
-  <button class="tab" data-tab="focus">Фокус сегодня</button>
-  <button class="tab" data-tab="str">STR</button>
-  <button class="tab" data-tab="funnel">Воронка</button>
-  <button class="tab" data-tab="plan">Отгрузка</button>
-  <button class="tab" data-tab="logistics">Логистика</button>
-  <button class="tab" data-tab="minus">Минус / P&L</button>
-  <button class="tab" data-tab="ads">Реклама</button>
-  <button class="tab" data-tab="stock">Остатки</button>
-  <button class="tab" data-tab="yard">Ярд 2.0</button>
-  <button class="tab" data-tab="warehouses">Склады</button>
-  <button class="tab" data-tab="stop">Стоп</button>
-</div>
-
-<!-- РНП -->
-<div class="panel active" id="panel-rnp">
+<!-- Сегодня -->
+<div class="panel active" id="panel-today">
+  <div class="hero" id="heroBanner"></div>
+  <div id="semaphore"></div>
+  <div class="kpi" id="kpiToday"></div>
   <div class="grid2">
-    <div class="card"><h2>Неделя vs прошлая</h2><div id="weekCompare"></div></div>
-    <div class="card"><h2>Растут (заказы)</h2><div class="scroll"><table id="tableGrow"><thead><tr>
-      <th>Артикул</th><th class="num">W1</th><th class="num">Δ</th><th class="num">Выручка</th>
-    </tr></thead><tbody></tbody></table></div></div>
+    <div class="card">
+      <div class="chart-head"><h2>Выручка и выкупы</h2><span class="chart-tag" id="chartRevTag">30 дней</span></div>
+      <div class="chart-wrap" id="chartRevenue"></div>
+    </div>
+    <div class="card">
+      <div class="chart-head"><h2>ДРР по дням</h2><span class="chart-tag" id="chartDrrTag">7 дней</span></div>
+      <div class="chart-wrap" id="chartDrr"></div>
+    </div>
   </div>
-  <div class="card"><h2>Все SKU — динамика</h2>
-    <input class="search" id="searchRnp" placeholder="Поиск…">
-    <div class="scroll"><table id="tableRnp"><thead><tr>
-      <th>Артикул</th><th class="num">Заказы W1</th><th class="num">Δ заказы</th>
-      <th class="num">STR Δ</th><th class="num">Выкуп</th><th class="num">ДРР</th><th>Зона</th>
-    </tr></thead><tbody></tbody></table></div>
-  </div>
+  <div class="card"><h2>Быстрые задачи</h2><div id="todayFocus"></div></div>
 </div>
 
 <!-- Фокус -->
 <div class="panel" id="panel-focus">
   <div class="card"><h2>Куда смотреть прямо сейчас</h2><div id="focusList"></div></div>
-  <div class="card"><h2>Инсайты по правилам</h2><div class="scroll" id="insightsList" style="max-height:50vh"></div></div>
+  <div class="card"><h2>Инсайты</h2><div class="scroll" id="insightsList" style="max-height:50vh"></div></div>
 </div>
 
-<!-- STR -->
+<!-- Динамика -->
+<div class="panel" id="panel-rnp">
+  <div class="grid2">
+    <div class="card"><h2>Неделя vs прошлая</h2><div id="weekCompare"></div></div>
+    <div class="card"><h2>Растут</h2><div class="scroll"><table id="tableGrow"><thead><tr>
+      <th>Артикул</th><th class="num">W1</th><th class="num">Δ</th><th class="num">Выручка</th>
+    </tr></thead><tbody></tbody></table></div></div>
+  </div>
+  <div class="card"><h2>SKU — динамика</h2>
+    <input class="search" id="searchRnp" placeholder="Поиск…">
+    <div class="scroll"><table id="tableRnp"><thead><tr>
+      <th>Артикул</th><th class="num">Заказы</th><th class="num">Δ</th>
+      <th class="num">STR Δ</th><th class="num">Выкуп</th><th class="num">ДРР</th><th>Зона</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
+</div>
+
 <div class="panel" id="panel-str">
-  <div class="card"><h2>STR просели — продажи W1 vs W0</h2>
+  <div class="card"><h2>STR просели</h2>
     <div class="scroll"><table id="tableStr"><thead><tr>
-      <th>Артикул</th><th class="num">Продажи W1</th><th class="num">W0</th>
+      <th>Артикул</th><th class="num">W1</th><th class="num">W0</th>
       <th class="num">Δ STR</th><th class="num">Заказы Δ</th><th>Действие</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
-<!-- Воронка -->
 <div class="panel" id="panel-funnel">
   <div class="kpi" id="funnelKpi"></div>
   <div class="grid2">
-    <div class="card"><h2>Низкий выкуп (&lt;75%)</h2>
+    <div class="card"><h2>Низкий выкуп</h2>
       <div class="scroll"><table id="tableBuyout"><thead><tr>
-        <th>Артикул</th><th class="num">Выкуп</th><th class="num">Заказы 30д</th><th class="num">Возвраты</th>
+        <th>Артикул</th><th class="num">Выкуп</th><th class="num">Заказы</th><th class="num">Возвраты</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
-    <div class="card"><h2>Воронка по SKU</h2>
+    <div class="card"><h2>Воронка</h2>
       <input class="search" id="searchFunnel" placeholder="Поиск…">
       <div class="scroll"><table id="tableFunnel"><thead><tr>
-        <th>Артикул</th><th class="num">Заказы 30д</th><th class="num">Выкупы</th>
-        <th class="num">Выкуп%</th><th class="num">Возвраты</th><th class="num">Ср.чек</th>
+        <th>Артикул</th><th class="num">Заказы</th><th class="num">Выкупы</th>
+        <th class="num">%</th><th class="num">Возвраты</th><th class="num">Чек</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
   </div>
 </div>
 
-<!-- Отгрузка -->
 <div class="panel" id="panel-plan">
-  <div class="card"><h2>План закупки и отгрузки</h2>
+  <div class="card"><h2>План отгрузки</h2>
     <input class="search" id="searchPlan" placeholder="Поиск…">
     <div class="scroll"><table id="tablePlan"><thead><tr>
-      <th>Артикул</th><th>Статус</th><th class="num">Остаток</th><th class="num">/30д</th>
-      <th>Запас</th><th class="num">Отгрузка</th><th class="num">Закуп ₽</th><th>Куда</th>
+      <th>Артикул</th><th>Статус</th><th class="num">Ост.</th><th class="num">/30д</th>
+      <th>Запас</th><th class="num">Отгр.</th><th class="num">Закуп</th><th>Куда</th>
     </tr></thead><tbody></tbody></table></div>
     <p class="note" id="planNote"></p>
   </div>
 </div>
 
-<!-- Логистика -->
-<div class="panel" id="panel-logistics">
-  <div class="grid2">
-    <div class="card"><h2>Экономия</h2><div id="logKpi"></div></div>
-    <div class="card"><h2>ИЛ</h2><div id="locKpi"></div></div>
-  </div>
-  <div class="card"><h2>Логистика по SKU</h2>
-    <input class="search" id="searchLog" placeholder="Поиск…">
-    <div class="scroll"><table id="tableLog"><thead><tr>
-      <th>Артикул</th><th class="num">Лог. 90д</th><th class="num">₽/шт</th>
-      <th class="num">ИЛ</th><th class="num">Экономия</th><th>Реком.</th>
-    </tr></thead><tbody></tbody></table></div>
-  </div>
-</div>
-
-<!-- Минус / P&L -->
 <div class="panel" id="panel-minus">
   <div class="kpi" id="minusKpi"></div>
   <div class="grid2">
-    <div class="card"><h2>🔴 В минусе на неделе</h2>
+    <div class="card"><h2>В минусе</h2>
       <input class="search" id="searchMinus" placeholder="Поиск…">
       <div class="scroll"><table id="tableMinus"><thead><tr>
-        <th>Артикул</th><th class="num">Прибыль W1</th><th class="num">W0</th>
-        <th class="num">forPay</th><th class="num">Реклама</th><th class="num">ДРР</th>
-        <th class="num">Остаток</th><th>Действие</th>
+        <th>Артикул</th><th class="num">Прибыль</th><th class="num">forPay</th>
+        <th class="num">Реклама</th><th class="num">ДРР</th><th>Действие</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
-    <div class="card"><h2>🟢 В плюсе — не ломать</h2>
+    <div class="card"><h2>В плюсе</h2>
       <div class="scroll"><table id="tableGreen"><thead><tr>
-        <th>Артикул</th><th class="num">Прибыль W1</th><th class="num">Продажи</th>
-        <th class="num">ДРР</th><th class="num">ROAS</th>
+        <th>Артикул</th><th class="num">Прибыль</th><th class="num">Продажи</th><th class="num">ДРР</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
   </div>
-  <div class="card"><h2>Залежи — 0 продаж, есть остаток</h2>
+  <div class="card"><h2>Залежи</h2>
     <div class="scroll"><table id="tableZero"><thead><tr>
-      <th>Артикул</th><th class="num">Остаток</th><th class="num">Реклама W1</th><th>Действие</th>
+      <th>Артикул</th><th class="num">Остаток</th><th class="num">Реклама</th><th>Действие</th>
     </tr></thead><tbody></tbody></table></div>
     <p class="note" id="minusNote"></p>
   </div>
 </div>
 
-<!-- Реклама -->
 <div class="panel" id="panel-ads">
   <div class="kpi" id="adsKpi"></div>
   <div class="grid2">
-    <div class="card"><h2>Реклама съедает маржу</h2>
+    <div class="card"><h2>Слив рекламы</h2>
       <div class="scroll"><table id="tableAdBleed"><thead><tr>
-        <th>Артикул</th><th class="num">Расход W1</th><th class="num">Прибыль</th>
-        <th class="num">ДРР</th><th class="num">ROAS</th><th>Действие</th>
+        <th>Артикул</th><th class="num">Расход</th><th class="num">Прибыль</th><th class="num">ДРР</th><th>Действие</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
-    <div class="card"><h2>Кампании за неделю</h2>
+    <div class="card"><h2>Кампании</h2>
       <div class="scroll"><table id="tableCampaigns"><thead><tr>
-        <th>Кампания / SKU</th><th class="num">Расход</th><th class="num">ДРР</th>
-        <th class="num">Прибыль</th><th>Действие</th>
+        <th>Кампания</th><th class="num">Расход</th><th class="num">ДРР</th><th class="num">Прибыль</th><th></th>
       </tr></thead><tbody></tbody></table></div>
     </div>
   </div>
-  <div class="card"><h2>Все SKU с рекламой</h2>
+  <div class="card"><h2>Все с рекламой</h2>
     <input class="search" id="searchAds" placeholder="Поиск…">
     <div class="scroll"><table id="tableAds"><thead><tr>
-      <th>Артикул</th><th class="num">Расход W1</th><th class="num">Расход 30д</th>
-      <th class="num">ДРР W1</th><th class="num">Прибыль W1</th><th>Рекомендация</th>
+      <th>Артикул</th><th class="num">W1</th><th class="num">30д</th><th class="num">ДРР</th><th class="num">Прибыль</th><th></th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
-<!-- Остатки -->
 <div class="panel" id="panel-stock">
   <div class="card"><h2>Остатки WB</h2>
     <input class="search" id="searchStock" placeholder="Поиск…">
     <div class="scroll"><table id="tableStock"><thead><tr>
-      <th>Артикул</th><th>Бренд</th><th class="num">Остаток</th><th class="num">В пути</th>
-      <th class="num">/30д</th><th class="num">Дней</th><th>Статус</th><th>Склады</th>
+      <th>Артикул</th><th>Бренд</th><th class="num">Ост.</th><th class="num">/30д</th>
+      <th class="num">Дней</th><th>Статус</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
-<!-- Ярд -->
-<div class="panel" id="panel-yard">
-  <div class="kpi" id="yardKpi"></div>
-  <div class="card"><h2>Чек-лист Ярд 2.0</h2><div id="yardChecklist"></div></div>
-</div>
-
-<!-- Склады -->
 <div class="panel" id="panel-warehouses">
   <div class="grid2">
     <div class="card"><h2>Остатки</h2><div id="barsStock"></div></div>
     <div class="card"><h2>План отгрузки</h2><div id="barsShip"></div></div>
   </div>
-  <div class="card"><h2>География спроса</h2><div id="regionBars"></div></div>
+  <div class="card"><h2>География</h2><div id="regionBars"></div></div>
 </div>
 
-<!-- Стоп -->
 <div class="panel" id="panel-stop">
   <div class="card"><h2>Стоп-лист</h2>
     <div class="scroll"><table id="tableStop"><thead><tr>
-      <th>Артикул</th><th>Причина</th><th class="num">Остаток</th><th class="num">/30д</th>
+      <th>Артикул</th><th>Причина</th><th class="num">Ост.</th><th class="num">/30д</th>
     </tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
 <footer>Обновление: <code>python3 Бизнес/Логистика/scripts/wb_manager_fetch.py</code></footer>
+</main>
 </div>
-
 <script src="app.js"></script>
 </body>
 </html>
